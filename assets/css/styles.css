@@ -247,8 +247,13 @@ svg { width: 18px; height: 18px; flex: 0 0 auto; }
 .chip b { color: var(--text); }
 .chip .dotpulse { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: pulse 2s infinite; }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,.5); } 70% { box-shadow: 0 0 0 7px rgba(52,211,153,0); } 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); } }
+/* flex:0 0 auto — sem isso o avatar era esmagado (chegava a 9px de largura)
+   quando os chips ocupavam a barra em telas estreitas. */
 .avatar { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; font-size: 13px;
-  background: linear-gradient(150deg, var(--brand-500), var(--brand-700)); color: #fff; cursor: pointer; }
+  background: linear-gradient(150deg, var(--brand-500), var(--brand-700)); color: #fff; cursor: pointer; flex: 0 0 auto; }
+.topbar .chip { flex: 0 0 auto; }
+.topbar .page-title { min-width: 0; overflow: hidden; }
+.topbar .page-title > *:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Content area */
 .content { padding: 28px; max-width: 1180px; width: 100%; margin: 0 auto; }
@@ -1006,6 +1011,72 @@ svg { width: 18px; height: 18px; flex: 0 0 auto; }
   .content { padding: 18px; }
 }
 .menu-toggle { display: none; }
+
+/* ============================================================
+   CELULAR
+   Ajustes de uso com o dedo, em tela estreita.
+   ============================================================ */
+
+/* Fundo escuro atrás da gaveta: sem ele o menu abria e só dava para fechar
+   escolhendo alguma ferramenta. */
+.sidebar-backdrop {
+  position: fixed; inset: 0; z-index: 70;
+  background: rgba(4,7,13,.6); backdrop-filter: blur(2px);
+  opacity: 0; pointer-events: none; transition: opacity .25s;
+}
+.sidebar-backdrop.on { opacity: 1; pointer-events: auto; }
+
+@media (max-width: 900px) {
+  /* Barra do topo: "Portal online" é ruído em tela pequena e roubava o espaço
+     dos créditos e do avatar. */
+  .topbar { padding: 0 14px; gap: 10px; }
+  #onlineChip { display: none; }
+  .topbar .page-title { font-size: 15px; }
+  .topbar .page-title small { display: none; }
+
+  /* Alvos de toque: 36px de altura é pequeno demais para o dedo. */
+  .nav-item { padding: 11px 12px; }
+  .btn { padding: 12px 17px; }
+  .btn.sm { padding: 10px 13px; }
+  .btn-icon { width: 42px; height: 42px; }
+  .mn-topic, .suggest, .seg button { padding: 10px 14px; }
+
+  /* Rodapé de modal: botões ocupam a largura toda, um por linha, em vez de
+     ficarem apertados lado a lado. Mantém a ordem do HTML — ação principal
+     primeiro e cancelar por último, como manda a convenção de celular. */
+  .modal .m-foot { flex-direction: column; }
+  .modal .m-foot .btn { width: 100%; }
+
+  /* Tabelas largas passam a rolar dentro do próprio cartão. */
+  .card { overflow-x: auto; }
+  .compare-table, .usage-table, .admin-table { min-width: 480px; }
+
+  .view-head, .focus-header, .mn-header, .ps-header { padding: 18px; }
+  .view-head h1 { font-size: 21px; }
+  .hero h1 { font-size: 26px; }
+  .askbox { padding: 8px 8px 8px 14px; }
+}
+
+@media (max-width: 720px) {
+  .content { padding: 14px; }
+  .card { padding: 16px; }
+  .card.pad-lg { padding: 18px; }
+  .report-head h2 { font-size: 19px; }
+  .toolbar { margin-left: 0; width: 100%; }
+  .toolbar .btn { flex: 1; }
+
+  /* 16px evita que o iOS dê zoom sozinho ao tocar no campo. */
+  .input, .textarea, .select, .hist-search { font-size: 16px; }
+
+  /* Slides: com o padding de tela grande sobrava pouco espaço para o texto. */
+  .slide { padding: 22px 20px; }
+  .slide h2 { font-size: calc(23px * var(--fit)); }
+  .slide ul li { font-size: calc(14px * var(--fit)); }
+  .slide .s-foot { left: 20px; right: 20px; }
+
+  .msg { max-width: 100%; }
+  .fact .f-k { font-size: 12.5px; }
+}
 
 
 /* ============================================================

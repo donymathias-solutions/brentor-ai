@@ -67,6 +67,7 @@
       document.documentElement.scrollTop = 0;
       document.body.scrollTop = 0;
       document.querySelector('.sidebar')?.classList.remove('open');
+      document.querySelector('.sidebar-backdrop')?.classList.remove('on');
     },
   };
 
@@ -247,7 +248,20 @@
           <div class="content" id="content"></div>
         </div>
       </div>`;
-      document.getElementById('menuToggle').onclick = () => document.getElementById('sidebar').classList.toggle('open');
+      /* Gaveta lateral no celular. O fundo escuro permite fechar tocando fora —
+         antes só dava para sair escolhendo alguma ferramenta. */
+      const sidebar = document.getElementById('sidebar');
+      const backdrop = document.createElement('div');
+      backdrop.className = 'sidebar-backdrop';
+      document.body.appendChild(backdrop);
+      const fecharGaveta = () => { sidebar.classList.remove('open'); backdrop.classList.remove('on'); };
+      document.getElementById('menuToggle').onclick = () => {
+        const abrindo = !sidebar.classList.contains('open');
+        sidebar.classList.toggle('open', abrindo);
+        backdrop.classList.toggle('on', abrindo);
+      };
+      backdrop.onclick = fecharGaveta;
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharGaveta(); });
       document.getElementById('avatar').onclick = openUserMenu;
     }
 
