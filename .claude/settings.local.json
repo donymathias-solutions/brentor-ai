@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(git --version)",
+      "PowerShell($node = \\(Get-Command node -ErrorAction SilentlyContinue\\); if \\($node\\) { node --version; npm --version } else { \"node not found\" }; \"---\"; $py = \\(Get-Command python -ErrorAction SilentlyContinue\\); if \\($py\\) { python --version } else { \"python not found\" })",
+      "PowerShell($cmds = 'node','python','py','php','dotnet','ruby','npx','caddy','miniserve'; foreach\\($c in $cmds\\){ $g=Get-Command $c -ErrorAction SilentlyContinue; if\\($g\\){ \"{0} -> {1}\" -f $c,$g.Source } else { \"$c -> \\(ausente\\)\" } })",
+      "mcp__Claude_Preview__preview_start",
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell($env:Path = \"C:\\\\Program Files\\\\nodejs;\" + $env:Path; Set-Location \"C:\\\\Users\\\\Donyzete\\\\Brentor.ai\"; Start-Process -FilePath \"node\" -ArgumentList \"server.js\" -NoNewWindow -PassThru | Select-Object Id, ProcessName)",
+      "Bash(\"C:/Program Files/nodejs/node.exe\" \"C:/Users/Donyzete/Brentor.ai/server.js\")",
+      "Bash(curl -s http://localhost:4173/api/health)",
+      "Bash(curl -s -X POST http://localhost:4173/api/chat -H 'Content-Type: application/json' -d '{\"message\":\"Quero analisar a empresa Magazine Luiza, como posso fazer?\",\"plan\":\"gold\",\"history\":[]}')",
+      "Bash(curl -s -X POST http://localhost:4173/api/chat -H 'Content-Type: application/json' -d '{\"message\":\"Oi, quero analisar a Magazine Luiza\",\"plan\":\"gold\",\"history\":[]}')",
+      "PowerShell($body = @{ message = \"Ola\" } | ConvertTo-Json -Compress; $bytes = [System.Text.Encoding]::UTF8.GetBytes\\($body\\); $req = [System.Net.HttpWebRequest]::Create\\(\"http://localhost:4173/api/chat\"\\); $req.Method = \"POST\"; $req.ContentType = \"application/json\"; $req.ContentLength = $bytes.Length; $req.Timeout = 30000; $s = $req.GetRequestStream\\(\\); $s.Write\\($bytes, 0, $bytes.Length\\); $s.Close\\(\\); try { $resp = $req.GetResponse\\(\\); $sr = New-Object System.IO.StreamReader\\($resp.GetResponseStream\\(\\)\\); $sr.ReadToEnd\\(\\) } catch [System.Net.WebException] { $sr = New-Object System.IO.StreamReader\\($_.Exception.Response.GetResponseStream\\(\\)\\); $sr.ReadToEnd\\(\\) })",
+      "Bash(node server.js)",
+      "PowerShell(Add-Type -AssemblyName System.Drawing; $src = [System.Drawing.Image]::FromFile\\(\"C:\\\\Users\\\\Donyzete\\\\Brentor.ai\\\\assets\\\\img\\\\brentor-logo.png\"\\); \"src: $\\($src.Width\\)x$\\($src.Height\\)\"; $side = $src.Height; $bmp = New-Object System.Drawing.Bitmap\\($side, $side\\); $g = [System.Drawing.Graphics]::FromImage\\($bmp\\); $g.DrawImage\\($src, \\(New-Object System.Drawing.Rectangle\\(0,0,$side,$side\\)\\), \\(New-Object System.Drawing.Rectangle\\(0,0,$side,$side\\)\\), [System.Drawing.GraphicsUnit]::Pixel\\); $g.Dispose\\(\\); $bmp.Save\\(\"C:\\\\Users\\\\Donyzete\\\\Brentor.ai\\\\assets\\\\img\\\\brentor-icon.png\", [System.Drawing.Imaging.ImageFormat]::Png\\); $bmp.Dispose\\(\\); $src.Dispose\\(\\); \"saved\")",
+      "Bash(node -e \"const s=require\\('fs'\\).readFileSync\\('assets/js/views2.js','utf8'\\); const m=s.match\\(/[ÂÃ][\\\\x80-\\\\xBF]|â[\\\\x80-\\\\x9F]./g\\)||[]; const c={}; m.forEach\\(x=>c[x]=\\(c[x]||0\\)+1\\); console.log\\('restantes:',c\\);\")",
+      "Bash(node -c \"assets/js/views2.js\")",
+      "Bash(node -e \"const s=require\\('fs'\\).readFileSync\\('assets/css/styles.css','utf8'\\); const l=s.split\\('\\\\n'\\); console.log\\('linhas:',l.length\\); console.log\\(l.slice\\(-6\\).join\\('\\\\n'\\)\\);\")",
+      "Bash(curl -s --max-time 5 http://localhost:4173/api/health)",
+      "Bash(curl -s --max-time 10 -X POST http://localhost:4173/api/mynews -H \"Content-Type: application/json\" -d '{\"topics\":[],\"version\":\"1.0\"}')",
+      "Bash(npx create-next-app@latest brentor-ai-nextjs --typescript --tailwind --app --no-eslint --no-src-dir --import-alias '@/*' --no-git)"
+    ]
+  }
+}
