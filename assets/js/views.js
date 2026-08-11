@@ -280,11 +280,32 @@
     body.querySelector('#anaRun').onclick = () => {
       const name = body.querySelector('#anaName').value.trim();
       if (!name) { B.toast('Informe o nome da empresa','warn'); body.querySelector('#anaName').focus(); return; }
+      if (!B.aiReady()) return;
+
+      /* A profunda faz 9 buscas em vez de 6 e gera um relatório bem maior —
+         medido em produção, passa dos 3 minutos. Avisar antes evita que a
+         pessoa ache que travou e feche a página no meio. */
+      if (!deepOn) return runAnalysis(false);
+      B.modal({
+        title: 'A análise profunda demora alguns minutos',
+        body: `<p>Ela pesquisa em mais fontes e monta um relatório bem mais detalhado.
+                 Por isso leva tipicamente <b>de 3 a 5 minutos</b>.</p>
+               <p class="muted" style="margin-top:10px">Deixe esta aba aberta enquanto processa.
+                 A análise simples fica pronta em cerca de um minuto e meio.</p>`,
+        actions: [
+          { label:'Continuar com a profunda', class:'primary', onClick: () => runAnalysis(true) },
+          { label:'Fazer a análise simples',  class:'ghost',   onClick: () => runAnalysis(false) },
+          { label:'Cancelar',                 class:'ghost' },
+        ],
+      });
+    };
+
+    function runAnalysis(deep) {
+      const name = body.querySelector('#anaName').value.trim();
       const info = body.querySelector('#anaInfo').value.trim();
       const links = Array.from(body.querySelectorAll('#anaLinks [data-link]')).map(i=>i.value.trim()).filter(Boolean);
       const attachedFiles = fz.getFiles();
-      const action = deepOn ? 'analysisDeep' : 'analysis';
-      if (!B.aiReady()) return;
+      const action = deep ? 'analysisDeep' : 'analysis';
       if (!store.spend(action, { label:'Analysis — '+name })) { B.creditWall(); return; }
       attachedFiles.forEach(() => store.spend('file_analysis'));
 
@@ -293,15 +314,17 @@
         steps.unshift({ icon:'web', t:`Acessando ${links.length} link(s) fornecido(s)…` });
       if (attachedFiles.length > 0)
         steps.unshift({ icon:'file', t:`Lendo ${attachedFiles.length} arquivo(s): ${attachedFiles.map(f=>f.name).join(', ')}` });
+      if (deep)
+        steps.push({ icon:'info', t:'Análise profunda — pode levar de 3 a 5 minutos' });
       if (!B.aiMode.active)
         steps.push({ icon:'info', t:'Modo demonstração — configure a IA real para pesquisa real' });
 
       // Dispara chamada à API em paralelo com a animação
       const apiPromise = B.aiMode.active
-        ? B.api.analyze(name, info, rel, deepOn, links, attachedFiles)
+        ? B.api.analyze(name, info, rel, deep, links, attachedFiles)
         : Promise.resolve(null);
 
-      B.runStatus(body, steps, { title:`Analisando ${name}`, speed: deepOn?0.8:1, waitFor: apiPromise, onDone: async () => {
+      B.runStatus(body, steps, { title:`Analisando ${name}`, speed: deep?0.8:1, waitFor: apiPromise, onDone: async () => {
         let company;
         try {
           if (B.aiMode.active) {
@@ -315,14 +338,14 @@
           B.toast('Erro na IA: ' + e.message + ' — créditos reembolsados, exibindo demonstração','warn');
           company = B.buildCompany(name, info);
         }
-        const payload = { company, relation: rel, info, deep: deepOn, files: attachedFiles.map(f=>f.name),
+        const payload = { company, relation: rel, info, deep, files: attachedFiles.map(f=>f.name),
           summary: company.summary || B.execSummary(company, rel), date: B.now().toISOString(), aiGenerated: B.aiMode.active };
         store.addHistory({ type:'analysis', title:'Análise · '+company.name,
           subtitle: B.relations.find(r=>r.id===rel).label, payload });
         renderAnalysisReport(body, payload);
         B.toast('Relatório gerado','success');
       }});
-    };
+    }
   }
 
   function renderAnalysisReport(body, p) {
