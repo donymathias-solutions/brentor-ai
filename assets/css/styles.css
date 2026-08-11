@@ -1081,6 +1081,37 @@ svg { width: 18px; height: 18px; flex: 0 0 auto; }
   .hero p { font-size: 14px; }
   .section-title { margin: 24px 0 12px; }
 
+  /* ---- Caixa de pergunta ----
+     A caixa tinha altura de uma linha e o texto de exemplo precisava de três,
+     aparecendo cortado ao meio. Aqui ela comporta duas linhas e o exemplo curto
+     (trocado no views.js) cabe inteiro. */
+  .askbox { padding: 10px 10px 10px 14px; align-items: center; }
+  .askbox textarea { min-height: 54px; padding: 4px 0; }
+  .askbox .send { width: 46px; height: 46px; }
+
+  /* ---- Sugestões ----
+     Eram cinco larguras diferentes (166 a 196px), cada uma sozinha na sua
+     linha e centralizada — daí o aspecto solto. Agora formam um bloco de duas
+     colunas iguais, com a última ocupando a linha inteira. */
+  .suggest-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 16px; }
+  .suggest { width: 100%; justify-content: center; display: inline-flex; align-items: center;
+             font-size: 12.5px; padding: 11px 8px; }
+  .suggest:last-child { grid-column: 1 / -1; }
+  .suggest svg { margin-right: 0; }
+
+  /* ---- Cartões de solução ----
+     O ícone ficava sozinho numa linha acima do nome, gastando altura à toa.
+     Vira uma grade: ícone e nome lado a lado, texto centralizado abaixo. */
+  .sol-card {
+    display: grid; grid-template-columns: auto auto;
+    justify-content: center; align-items: center;
+    gap: 0 12px; text-align: center; padding: 18px 16px;
+  }
+  .sol-card .ic { margin-bottom: 0; width: 40px; height: 40px; }
+  .sol-card h3 { justify-content: flex-start; font-size: 16px; }
+  .sol-card p { grid-column: 1 / -1; min-height: 0; margin: 12px 0 14px; font-size: 13px; }
+  .sol-card .go { grid-column: 1 / -1; justify-content: center; }
+
   /* text-wrap: pretty evita a palavra sozinha na última linha. Onde o
      navegador não suportar, simplesmente ignora. */
   p, .hint, label, .sol-card p, .muted { text-wrap: pretty; }

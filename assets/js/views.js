@@ -114,15 +114,16 @@
         <h1>Olá, ${esc(first)}. O que vamos <span>resolver</span> hoje?</h1>
         <p>Não sabe por onde começar? Pergunte ao Chat</p>
         <div class="askbox">
-          <textarea id="homeAsk" rows="1" placeholder="Ex.: Quero analisar o fornecedor TechNova antes de fechar contrato…"></textarea>
+          <textarea id="homeAsk" rows="1" placeholder="Ex.: Quero analisar o fornecedor TechNova antes de fechar contrato…"
+            data-placeholder-curto="Ex.: analisar a TechNova antes de fechar contrato"></textarea>
           <button class="btn primary send" id="homeSend">${ic.send}</button>
         </div>
         <div class="suggest-row">
-          <button class="suggest" data-go="analysis">${ic.analysis}Analisar uma empresa</button>
-          <button class="suggest" data-go="compare">${ic.compare}Comparar concorrentes</button>
-          <button class="suggest" data-go="display">${ic.display}Criar apresentação</button>
-          <button class="suggest" data-go="focus">${ic.focus}Resumo de arquivos</button>
-          <button class="suggest" data-go="mynews">${ic.news}Minhas notícias de hoje</button>
+          <button class="suggest" data-go="analysis">${ic.analysis}Analisar empresa</button>
+          <button class="suggest" data-go="compare">${ic.compare}Comparar</button>
+          <button class="suggest" data-go="display">${ic.display}Apresentação</button>
+          <button class="suggest" data-go="focus">${ic.focus}Resumir arquivo</button>
+          <button class="suggest" data-go="mynews">${ic.news}Minhas notícias</button>
         </div>
       </div>
 
@@ -197,6 +198,11 @@
 
     // interações
     const ask = mount.querySelector('#homeAsk');
+    /* No celular o exemplo longo não cabia na caixa e aparecia cortado pela
+       metade. Troca por uma versão curta que fecha em duas linhas. */
+    if (window.matchMedia('(max-width: 720px)').matches && ask.dataset.placeholderCurto) {
+      ask.placeholder = ask.dataset.placeholderCurto;
+    }
     const autoGrow = () => { ask.style.height='auto'; ask.style.height = Math.min(ask.scrollHeight, 140)+'px'; };
     ask.addEventListener('input', autoGrow);
     const submit = () => { const v = ask.value.trim(); if (!v) { ask.focus(); return; } B.router.go('chat', { initial: v }); };
