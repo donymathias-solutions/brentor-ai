@@ -1099,6 +1099,28 @@ svg { width: 18px; height: 18px; flex: 0 0 auto; }
   .suggest:last-child { grid-column: 1 / -1; }
   .suggest svg { margin-right: 0; }
 
+  /* ---- Seletores de opção (relação, audiência, abrangência…) ----
+     Como eram inline-flex, cada botão ficava com a largura do próprio texto:
+     na Analysis davam 97, 124, 131 e 86px, um 2x2 desalinhado. Viram grade de
+     duas colunas iguais; com número ímpar de opções, a última ocupa a linha. */
+  .seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 6px; }
+  .seg button { width: 100%; display: inline-flex; align-items: center;
+                justify-content: center; gap: 7px; padding: 11px 8px; }
+  .seg button:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  /* ---- Linha de custo em créditos ----
+     Ícone à esquerda e texto à esquerda em três linhas irregulares.
+     Empilhado e centralizado fica legível de relance. */
+  .cost-row { flex-direction: column; text-align: center; gap: 7px; padding: 14px; }
+
+  /* ---- Escolha de formato / tipo ----
+     Empilhados, os quatro cartões somavam 488px: quase uma tela inteira só
+     para escolher o formato. Em duas colunas cabem numa olhada. */
+  .out-type, .focus-type-grid { grid-template-columns: 1fr 1fr; }
+  .out-opt { padding: 13px 10px; }
+  .out-opt .oi { width: 34px; height: 34px; margin-bottom: 7px; }
+  .out-opt span { display: block; line-height: 1.35; }
+
   /* ---- Cartões de solução ----
      O ícone ficava sozinho numa linha acima do nome, gastando altura à toa.
      Vira uma grade: ícone e nome lado a lado, texto centralizado abaixo. */
