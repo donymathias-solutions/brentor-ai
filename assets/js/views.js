@@ -287,11 +287,13 @@
          pessoa ache que travou e feche a página no meio. */
       if (!deepOn) return runAnalysis(false);
       B.modal({
-        title: 'A análise profunda demora alguns minutos',
-        body: `<p>Ela pesquisa em mais fontes e monta um relatório bem mais detalhado.
-                 Por isso leva tipicamente <b>de 3 a 5 minutos</b>.</p>
-               <p class="muted" style="margin-top:10px">Deixe esta aba aberta enquanto processa.
-                 A análise simples fica pronta em cerca de um minuto e meio.</p>`,
+        wide: true,
+        title: 'Atenção ao tempo de espera da Análise Profunda',
+        body: `<p>Essa pesquisa consulta mais fontes e rastreia mais informações para que o
+                 resultado do relatório seja bem mais detalhado.
+                 O tempo de espera costuma ser de <b>3 a 5 minutos</b>.</p>
+               <p style="margin-top:12px">A Análise Simples fica pronta em cerca de um minuto e meio.</p>
+               <p class="muted" style="margin-top:12px">Deixe esta aba aberta enquanto processa.</p>`,
         actions: [
           { label:'Continuar com a profunda', class:'primary', onClick: () => runAnalysis(true) },
           { label:'Fazer a análise simples',  class:'ghost',   onClick: () => runAnalysis(false) },

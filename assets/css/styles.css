@@ -623,7 +623,9 @@ svg { width: 18px; height: 18px; flex: 0 0 auto; }
 .modal .m-head { padding: 20px 22px 0; display: flex; align-items: flex-start; justify-content: space-between; }
 .modal .m-head h3 { font-size: 18px; }
 .modal .m-body { padding: 12px 22px 22px; color: var(--text-soft); font-size: 14px; }
-.modal .m-foot { padding: 16px 22px; border-top: 1px solid var(--line-soft); display: flex; justify-content: flex-end; gap: 10px; background: var(--bg-800); }
+/* flex-wrap: com três botões os rótulos estouravam a largura e o primeiro
+   aparecia cortado — agora quebram para a linha de baixo. */
+.modal .m-foot { padding: 16px 22px; border-top: 1px solid var(--line-soft); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; background: var(--bg-800); }
 .menu { position: fixed; top: 60px; right: 26px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md);
   box-shadow: var(--shadow-lg); padding: 6px; min-width: 210px; z-index: 200; animation: toastIn .15s; }
 .menu .mi { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 8px; font-size: 13.5px; color: var(--text-soft); width: 100%; background: transparent; border: none; text-align: left; }
