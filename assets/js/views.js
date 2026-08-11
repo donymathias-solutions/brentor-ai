@@ -284,6 +284,7 @@
       const links = Array.from(body.querySelectorAll('#anaLinks [data-link]')).map(i=>i.value.trim()).filter(Boolean);
       const attachedFiles = fz.getFiles();
       const action = deepOn ? 'analysisDeep' : 'analysis';
+      if (!B.aiReady()) return;
       if (!store.spend(action, { label:'Analysis — '+name })) { B.creditWall(); return; }
       attachedFiles.forEach(() => store.spend('file_analysis'));
 
@@ -696,6 +697,7 @@
       const reason = body.querySelector('#cmpReason').value.trim();
       const links = Array.from(body.querySelectorAll('#cmpLinks [data-link]')).map(i=>i.value.trim()).filter(Boolean);
       const attachedFiles = fz.getFiles();
+      if (!B.aiReady()) return;
       if (!store.spend('compare', { label:'Compare — '+names.join(' x ') })) { B.creditWall(); return; }
       attachedFiles.forEach(() => store.spend('file_analysis'));
 
@@ -975,6 +977,7 @@
       const ctx = body.querySelector('#dspContext').value.trim();
       const attachedFiles = fz.getFiles();
       if (!topic && !ctx && !seed && !attachedFiles.length) { B.toast('Informe um tema, conteúdo ou anexe um arquivo','warn'); return; }
+      if (!B.aiReady()) return;
       if (!store.spend(costKey[out], { label:'Display — '+(topic||out) })) { B.creditWall(); return; }
       attachedFiles.forEach(() => store.spend('file_analysis'));
       const steps = B.statusSteps.display.slice();

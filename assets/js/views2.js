@@ -173,6 +173,7 @@
       if (!allTopics.length) { B.toast('Selecione ou adicione ao menos um tema de interesse','warn'); return; }
       // salva preferências para a próxima vez
       store.setMyNews({ topics: [...selected], custom: customTopics.slice(), scope });
+      if (!B.aiReady()) return;
       if (!store.spend(actionKey)) { B.creditWall(); return; }
       lockRun();   // bloqueia o botão durante todo o processo (evita reinício acidental)
 
@@ -308,6 +309,7 @@
       loadBox.querySelector('#mnMore').onclick = function loadMore() {
         const btn = loadBox.querySelector('#mnMore');
         const note = loadBox.querySelector('.muted');
+        if (!B.aiReady()) return;
         if (!store.spend(loadKey)) { B.creditWall(); return; }
         const exclude = articles.map(a => a.url);
         const orig = btn.innerHTML; btn.disabled = true;
@@ -469,6 +471,7 @@
     }
     function send(text) {
       const v = (text!=null?text:input.value).trim(); if (!v) return;
+      if (!B.aiReady()) return;
       bubble('user', esc(v));
       input.value=''; input.style.height='auto';
       if (!store.spend('chat_msg')) { B.creditWall(); return; }

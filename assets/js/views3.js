@@ -165,6 +165,7 @@
         return;
       }
       const actionKey = 'focusv' + (isV2?'2':'1');
+      if (!B.aiReady()) return;
       if (!store.spend(actionKey)) { B.creditWall(); return; }
       attachedFiles.forEach(() => store.spend('file_analysis'));
       // créditos extras por URL (busca web)
