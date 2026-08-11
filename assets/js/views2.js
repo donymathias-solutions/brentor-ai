@@ -88,6 +88,7 @@
           : 'Seu jornal digital personalizado. Escolha seus temas de interesse e receba as principais notícias do dia no Brasil — com chamada, foto e resumo.'}</p>
       </div>
 
+      <div id="mnBody">
       <div class="card pad-lg fade-up" style="margin-top:18px">
         <div class="form-grid">
           <div class="field">
@@ -122,7 +123,7 @@
           <button class="btn primary lg" id="mnRun" style="background:linear-gradient(160deg,${isV2?'#0e7490,#22d3ee':'var(--brand-600),var(--brand-400)'})">${ic.news} Acessar as principais notícias de hoje</button>
         </div>
       </div>
-      <div id="mnBody"></div>`;
+      </div>`;
 
     // chips de temas
     mount.querySelectorAll('.mn-topic').forEach(b => b.onclick = () => {

@@ -68,6 +68,7 @@
         </div>` : ''}
       </div>
 
+      <div id="focusBody">
       <div class="card pad-lg fade-up" style="margin-top:18px">
         <div class="form-grid">
           <div class="field">
@@ -103,7 +104,7 @@
           <button class="btn primary lg" id="focusRun" style="background:linear-gradient(160deg,${isV2?'#059669,#34d399':'var(--green),#10b981'})">${ic.focus} Processar com Focus ${ver}</button>
         </div>
       </div>
-      <div id="focusBody"></div>`;
+      </div>`;
     if (params && params.reopen && params.reopen.payload) {
       const pl = params.reopen.payload;
       (pl.aiResult ? renderFocusResult : (pl.ver === '2.0' ? renderFocusV2 : renderFocusV1))(mount.querySelector('#focusBody'), pl);
