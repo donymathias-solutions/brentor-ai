@@ -658,6 +658,13 @@ svg { width: 18px; height: 18px; flex: 0 0 auto; }
 .export-menu .em-hint { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--text-faint); }
 .btn[data-xm] svg:last-child { width: 13px; height: 13px; opacity: .6; margin-left: -2px; }
 
+/* Linha "campo + Adicionar" (tema do My News, URL do Focus).
+   min-width:0 é o que impede o campo de manter a largura intrínseca do input
+   e empurrar o botão para fora do cartão em tela estreita. */
+.input-add-row { display: flex; gap: 9px; }
+.input-add-row .input { flex: 1 1 auto; min-width: 0; }
+.input-add-row .btn { flex: 0 0 auto; white-space: nowrap; }
+
 .empty { text-align: center; padding: 40px 20px; color: var(--text-mute); }
 .empty .ei { width: 54px; height: 54px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); display: grid; place-items: center; margin: 0 auto 14px; color: var(--text-faint); }
 
@@ -1083,6 +1090,11 @@ svg { width: 18px; height: 18px; flex: 0 0 auto; }
   .card { padding: 16px; }
   .card.pad-lg { padding: 18px; }
 
+  /* campo e botão "Adicionar" empilhados: lado a lado não sobra largura útil */
+  .input-add-row { flex-wrap: wrap; }
+  .input-add-row .input { flex: 1 1 100%; }
+  .input-add-row .btn { width: 100%; justify-content: center; }
+
   /* padding do .content cai para 14px — a conta da altura do Chat acompanha */
   .chat-page { height: calc(100dvh - var(--topbar-h) - 28px); gap: 10px; min-height: 380px; }
 
@@ -1168,7 +1180,12 @@ svg { width: 18px; height: 18px; flex: 0 0 auto; }
      de 355px ao cartão, que somada ao padding de 40px estourava a tela. */
   .auth-main { padding: 24px 16px; }
   .auth-card { max-width: 100%; }
-  .auth-card .btn { white-space: normal; line-height: 1.35; }
+  /* Rótulo de botão pode quebrar em duas linhas no celular. Com nowrap, um
+     rótulo longo vira largura mínima do elemento e estica a coluna do
+     formulário para fora do cartão — foi o que abriu rolagem lateral no
+     My News ("Acessar as principais notícias de hoje", 343px). */
+  .btn { white-space: normal; line-height: 1.35; }
+  .form-grid { grid-template-columns: minmax(0, 1fr); }
   .auth, .auth > * { min-width: 0; }
   .report-head h2 { font-size: 19px; }
   .toolbar { margin-left: 0; width: 100%; }

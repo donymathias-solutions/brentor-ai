@@ -100,8 +100,8 @@
           </div>
           <div class="field">
             <label>Outro tema específico <span class="muted" style="font-weight:400;font-size:12px">(opcional — ex.: setor, cidade, time, assunto de nicho)</span></label>
-            <div style="display:flex;gap:9px">
-              <input class="input" id="mnCustom" placeholder="Ex.: mercado imobiliário em Curitiba" style="flex:1">
+            <div class="input-add-row">
+              <input class="input" id="mnCustom" placeholder="Ex.: mercado imobiliário em Curitiba">
               <button class="btn ghost sm" id="mnCustomAdd" type="button">${ic.plus} Adicionar</button>
             </div>
             <div id="mnCustomList" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>

@@ -85,8 +85,8 @@
           <div class="field">
             <label>Links de notícias ou URLs para análise <span class="muted" style="font-weight:400;font-size:12px">(opcional — Focus 2.0 lê e incorpora o conteúdo)</span></label>
             <div id="urlList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
-            <div style="display:flex;gap:9px">
-              <input class="input" id="focusUrlInput" placeholder="https://g1.globo.com/noticia… ou qualquer URL pública" style="flex:1">
+            <div class="input-add-row">
+              <input class="input" id="focusUrlInput" placeholder="https://g1.globo.com/noticia… ou qualquer URL pública">
               <button class="btn ghost sm" id="focusUrlAdd" type="button">${ic.plus} Adicionar</button>
             </div>
             <div class="hint" style="margin-top:6px">${ic.web||''}Cole links de notícias, artigos, relatórios online ou qualquer página pública. O Focus 2.0 acessa, lê o conteúdo e incorpora na análise — combinando com o texto que você colou acima.</div>
