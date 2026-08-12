@@ -68,19 +68,10 @@
 
   /* Barra de ações de exportação para qualquer relatório/resultado. */
   function exportToolbar() {
-    return `<div class="toolbar">
-      <button class="btn subtle sm" data-x="pdf">${ic.pdf} PDF</button>
-      <button class="btn subtle sm" data-x="local">${ic.download} Salvar</button>
-      <button class="btn subtle sm" data-x="share">${ic.share} Compartilhar</button>
-    </div>`;
+    return `<div class="toolbar">${B.exportButtons()}</div>`;
   }
   function wireExports(scope, getNode, title, payload, toolName) {
-    scope.querySelectorAll('[data-x]').forEach(b => b.onclick = () => {
-      const node = getNode();
-      if (b.dataset.x === 'pdf') B.exportPDF(node, title, toolName);
-      else if (b.dataset.x === 'local') B.exportText(B.nodeText(node), title.replace(/[^\w\-]+/g,'_'));
-      else if (b.dataset.x === 'share') B.share('Brentor.ai · ' + title, B.nodeText(node).slice(0, 280) + '…');
-    });
+    B.wireExportButtons(scope, { node: getNode, title, toolName });
   }
 
   /* ============================================================
@@ -1061,13 +1052,9 @@
     else if (p.out === 'dash') resultNode = buildDashboardView(p, ai);
     else resultNode = buildExecReport(p, ai);
 
-    // Apresentações (slides) têm exportação própria (PDF em slides + PPTX nativo) —
-    // "Salvar" em .txt não faz sentido pra um deck visual, por isso não aparece aqui.
-    const leftButtons = isSlides
-      ? `<button class="btn subtle sm" data-x="pdf-slides">${ic.pdf} PDF (slides)</button>
-         <button class="btn subtle sm" data-x="pptx">${ic.display} PPTX</button>
-         <button class="btn subtle sm" data-x="share">${ic.share} Compartilhar</button>`
-      : exportToolbar().replace('<div class="toolbar">','').replace('</div>','');
+    // Mesmos botões Salvar/Compartilhar de todas as ferramentas; para slides o
+    // menu redireciona PDF e PPT aos exportadores nativos da apresentação.
+    const leftButtons = B.exportButtons();
 
     const toolbarRow = el(`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
       <div style="display:flex;gap:9px;flex-wrap:wrap">${leftButtons}</div>
@@ -1089,9 +1076,13 @@
     });
 
     if (isSlides) {
-      toolbarRow.querySelector('[data-x="pdf-slides"]').onclick = () => resultNode._exportSlidesPDF();
-      toolbarRow.querySelector('[data-x="pptx"]').onclick = () => resultNode._exportSlidesPPTX();
-      toolbarRow.querySelector('[data-x="share"]').onclick = () => B.share('Brentor.ai · '+(p.topic||'Apresentação'), B.nodeText(resultNode).slice(0,280)+'…');
+      B.wireExportButtons(toolbarRow, {
+        node: () => resultNode,
+        title: 'Display - ' + (p.topic || 'Apresentacao'),
+        toolName: 'Display',
+        onPDF: () => resultNode._exportSlidesPDF(),
+        onPPT: () => resultNode._exportSlidesPPTX(),
+      });
     } else {
       wireExports(toolbarRow, () => resultNode, 'Display - '+(p.topic||p.out), p, 'Display');
     }

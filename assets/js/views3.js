@@ -472,20 +472,14 @@
   function makeResultToolbar(body, wrap, title, onNew) {
     return el(`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
       <div style="display:flex;gap:9px;flex-wrap:wrap">
-        <button class="btn subtle sm" data-x="pdf">${ic.pdf} PDF</button>
-        <button class="btn subtle sm" data-x="local">${ic.download} Salvar</button>
-        <button class="btn subtle sm" data-x="share">${ic.share} Compartilhar</button>
+        ${B.exportButtons()}
         <button class="btn ghost sm" data-display>${ic.display} Gerar Display</button>
       </div>
       <button class="btn ghost sm" data-new>${ic.refresh} Nova análise</button></div>`);
   }
   function wireToolbar(toolbar, node, title, toolName) {
     toolbar.querySelector('[data-new]').onclick = () => B.router.go('focus');
-    toolbar.querySelectorAll('[data-x]').forEach(b => b.onclick = () => {
-      if (b.dataset.x==='pdf') B.exportPDF(node, title, toolName);
-      else if (b.dataset.x==='local') B.exportText(B.nodeText(node), title.replace(/[^\w\-]+/g,'_'));
-      else B.share('Brentor.ai · Focus', B.nodeText(node).slice(0,280)+'…');
-    });
+    B.wireExportButtons(toolbar, { node, title, toolName });
   }
 
 })(window.Brentor);

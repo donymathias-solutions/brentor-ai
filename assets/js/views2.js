@@ -337,11 +337,17 @@
     const toolbar = el(`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
       <div style="display:flex;gap:9px;flex-wrap:wrap">
         <button class="btn subtle sm" data-x="fs">${ic.maximize} Exibir em tela cheia</button>
+        ${B.exportButtons()}
       </div>
       <button class="btn ghost sm" data-new>${ic.refresh} Nova edição / temas</button></div>`);
 
     body.innerHTML = ''; body.appendChild(toolbar); body.appendChild(wrap);
     toolbar.querySelector('[data-new]').onclick = () => B.router.go('mynews');
+    B.wireExportButtons(toolbar, {
+      node: () => wrap,
+      title: 'My News - ' + new Date().toLocaleDateString('pt-BR'),
+      toolName: 'My News',
+    });
 
     // Tela cheia da edição
     const fsBtn = toolbar.querySelector('[data-x="fs"]');

@@ -218,12 +218,39 @@
     B.toast('HTML salvo — abra no navegador para visualizar','success');
   };
 
+  /* Roda DENTRO da janela de impressão: só revela e chama print() depois que a
+     folha de estilo e as imagens terminaram de carregar. Antes disso a página
+     fica escondida — é o que evita o "pisca" de ícones gigantes no momento em
+     que o usuário clica em PDF. O timeout é rede lenta: imprime mesmo assim. */
+  const PRINT_WHEN_READY = `
+    (function(){
+      var feito=false;
+      function imprimir(){
+        if (feito) return; feito=true;
+        document.documentElement.classList.remove('pdf-loading');
+        setTimeout(function(){ window.focus(); window.print(); }, 150);
+      }
+      if (document.readyState === 'complete') setTimeout(imprimir, 120);
+      else window.addEventListener('load', function(){ setTimeout(imprimir, 120); });
+      setTimeout(imprimir, 6000);
+    })();`;
+
   /* "Gerar PDF": abre janela de impressão com só o conteúdo do relatório. */
   B.exportPDF = function (node, title, toolName) {
     const w = window.open('', '_blank');
     if (!w) { B.toast('Permita pop-ups para gerar o PDF','warn'); return; }
     const cssHref = (document.querySelector('link[href*="styles.css"]')||{}).href || '';
-    w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${B.esc(title)}</title>
+    w.document.write(`<!doctype html><html lang="pt-BR" class="pdf-loading"><head><meta charset="utf-8"><title>${B.esc(title)}</title>
+      <style>
+      /* Estilos "de largada": entram em vigor antes de styles.css chegar da rede.
+         Sem eles, todo SVG inline renderiza no tamanho intrínseco padrão
+         (300x150) e a janela pisca com ícones gigantes até a folha carregar. */
+      svg{width:18px;height:18px;flex:0 0 auto}
+      html.pdf-loading{visibility:hidden}
+      /* rótulo/valor são spans: sem a folha eles colariam ("Razão socialMATHIAS…") */
+      .fact{display:grid;grid-template-columns:180px 1fr;gap:16px;padding:9px 0}
+      .kpi{display:block;padding:10px 0}
+      </style>
       <link rel="stylesheet" href="${cssHref}">
       <style>
       /* ===== Tema de impressão Brentor — claro, profissional ===== */
@@ -314,14 +341,14 @@
       h1,h2,h3,h4{break-after:avoid}
       </style></head><body>
       <div class="pdf-head"><img src="${location.origin}/assets/img/brentor-logo.png" alt="Brentor.ai"><span>${B.esc(title)} · Gerado em ${new Date().toLocaleString('pt-BR')}</span></div>
-      ${node.outerHTML}</body></html>`);
+      ${node.outerHTML}
+      <script>${PRINT_WHEN_READY}<\/script></body></html>`);
     w.document.close();
     // troca a URL exibida no rodapé de impressão ("about:blank") por um rótulo legível
     try {
       const footerLabel = `Brentor.ai-Gerado-pela-ferramenta-${(toolName||'Brentor').replace(/\s+/g,'-')}`;
       w.history.replaceState(null, '', location.origin + '/' + footerLabel);
     } catch (e) {}
-    setTimeout(() => { w.focus(); w.print(); }, 600);
     B.toast('Abrindo geração de PDF (use "Salvar como PDF")','info');
   };
 
@@ -334,7 +361,8 @@
     if (!w) { B.toast('Permita pop-ups para gerar o PDF','warn'); return; }
     const cssHref = (document.querySelector('link[href*="styles.css"]')||{}).href || '';
     const pages = slidesHtml.map(html => `<div class="slide-page"><div class="slide">${html}</div></div>`).join('');
-    w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${B.esc(title)}</title>
+    w.document.write(`<!doctype html><html lang="pt-BR" class="pdf-loading"><head><meta charset="utf-8"><title>${B.esc(title)}</title>
+      <style>svg{width:18px;height:18px;flex:0 0 auto}html.pdf-loading{visibility:hidden}</style>
       <link rel="stylesheet" href="${cssHref}">
       <style>
         @page { size: landscape; margin: 0; }
@@ -354,13 +382,13 @@
           document.querySelectorAll('img').forEach(function(img){ if(!img.complete) img.addEventListener('load', run); });
         })();
       <\/script>
+      <script>${PRINT_WHEN_READY}<\/script>
       </body></html>`);
     w.document.close();
     try {
       const footerLabel = `Brentor.ai-Apresentacao-${(title||'Brentor').replace(/\s+/g,'-')}`;
       w.history.replaceState(null, '', location.origin + '/' + footerLabel);
     } catch (e) {}
-    setTimeout(() => { w.focus(); w.print(); }, 900);
     B.toast('Abrindo geração de PDF da apresentação — use orientação paisagem e "Salvar como PDF"','info');
   };
 
@@ -520,6 +548,202 @@
     } catch (e) {
       B.toast('Erro ao gerar o .pptx: '+e.message,'warn');
     }
+  };
+
+  /* ============================================================
+     Exportação padronizada — PDF · DOC · PPT
+     Um único conjunto de funções serve TODAS as ferramentas: o que muda
+     entre elas é só o nó do resultado. Assim qualquer melhoria aqui vale
+     para Analysis, Compare, Display, Focus, My News e Chat de uma vez.
+     ============================================================ */
+
+  /* Normaliza um relatório para HTML simples (sem grid/flex/SVG).
+     Word e PowerPoint ignoram layout moderno — sem essa etapa, pares como
+     "Razão social" + valor saem colados um no outro. */
+  function reportToPlainHTML(node) {
+    const c = node.cloneNode(true);
+    c.querySelectorAll('svg,.toolbar,.next-cta,button,.menu,.dots,.thumbs,.slide-nav,.mn-read').forEach(e => e.remove());
+
+    // pares rótulo/valor viram linhas de texto explícitas
+    c.querySelectorAll('.fact').forEach(f => {
+      const k = f.querySelector('.f-k'), v = f.querySelector('.f-v');
+      const p = document.createElement('p');
+      p.innerHTML = `<b>${B.esc((k?k.innerText:'').trim())}:</b> ${B.esc((v?v.innerText:f.innerText).trim())}`;
+      f.replaceWith(p);
+    });
+    c.querySelectorAll('.kpi').forEach(k => {
+      const lbl = k.querySelector('.k-lbl'), val = k.querySelector('.k-val'), sub = k.querySelector('.k-sub');
+      const p = document.createElement('p');
+      p.innerHTML = `<b>${B.esc((lbl?lbl.innerText:'').trim())}:</b> ${B.esc((val?val.innerText:'').trim())}`
+        + (sub && sub.innerText.trim() ? ` <i>(${B.esc(sub.innerText.trim())})</i>` : '');
+      k.replaceWith(p);
+    });
+    c.querySelectorAll('.source-pill,.credibility,.chip').forEach(s => {
+      const p = document.createElement('p'); p.textContent = s.innerText.trim(); s.replaceWith(p);
+    });
+    // remove atributos de layout que o Word interpreta mal
+    c.querySelectorAll('[style]').forEach(e => e.removeAttribute('style'));
+    c.querySelectorAll('[class]').forEach(e => e.removeAttribute('class'));
+    return c.innerHTML;
+  }
+
+  const DOC_CSS = `
+    body{font-family:Calibri,'Segoe UI',Arial,sans-serif;font-size:11pt;color:#111827;line-height:1.5}
+    h1{font-size:20pt;color:#111827;margin:0 0 4pt}
+    h2{font-size:16pt;color:#111827;margin:14pt 0 6pt}
+    h3{font-size:12pt;color:#1e3a8a;text-transform:uppercase;letter-spacing:.5pt;
+       border-bottom:1pt solid #d8dfeb;padding-bottom:3pt;margin:16pt 0 8pt}
+    h4{font-size:11pt;color:#374151;margin:10pt 0 4pt}
+    p{margin:0 0 7pt;text-align:justify}
+    b{color:#111827}i{color:#6b7280}
+    ul,ol{margin:0 0 8pt 18pt}li{margin-bottom:4pt}
+    table{border-collapse:collapse;width:100%;font-size:10pt;margin:8pt 0}
+    th{background:#f1f5f9;color:#1e3a8a;border:1pt solid #d8dfeb;padding:5pt;text-align:left}
+    td{border:1pt solid #e6eaf2;padding:5pt}
+    .doc-head{border-bottom:2pt solid #1d4ed8;padding-bottom:6pt;margin-bottom:14pt;color:#6b7280;font-size:9pt}`;
+
+  /* Gera um .doc (HTML com MIME do Word) — abre no Word, Google Docs e LibreOffice. */
+  function buildDOC(node, title) {
+    const html = `<!doctype html><html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+      <head><meta charset="utf-8"><title>${B.esc(title)}</title><style>${DOC_CSS}</style></head>
+      <body><div class="doc-head"><b style="color:#1d4ed8">Brentor.ai</b> · ${B.esc(title)} ·
+        Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+      ${reportToPlainHTML(node)}</body></html>`;
+    return new Blob(['﻿' + html], { type: 'application/msword' });
+  }
+
+  B.exportDOC = function (node, title) {
+    const blob = buildDOC(node, title);
+    downloadBlob(blob, safeName(title) + '.doc', 'application/msword');
+    B.toast('Documento .doc salvo — abra no Word ou Google Docs', 'success');
+  };
+
+  function safeName(t) { return String(t||'Brentor').replace(/[^\w\-]+/g, '_').slice(0, 80); }
+
+  /* Converte um relatório em apresentação .pptx: capa + um slide por seção,
+     quebrando seções longas em vários slides para o texto nunca vazar. */
+  B.exportReportPPTX = async function (node, title, toolName) {
+    if (typeof PptxGenJS === 'undefined') { B.toast('Gerador de PPT indisponível — verifique sua conexão e tente novamente','warn'); return null; }
+    const pptx = new PptxGenJS();
+    pptx.defineLayout({ name:'BRENTOR_16x9', width:13.333, height:7.5 });
+    pptx.layout = 'BRENTOR_16x9';
+    const DARK='0B1120', LINE='2A3550', ACCENT='22D3EE', TEXT='F1F5F9', MUTED='94A3B8';
+    const W = 13.333, PAD = 0.8, MAX_LINHAS = 7;
+
+    const capa = pptx.addSlide(); capa.background = { color: DARK };
+    capa.addText('BRENTOR.AI', { x:0.5, y:2.2, w:W-1, h:0.4, fontSize:13, color:ACCENT, bold:true, charSpacing:3, align:'center' });
+    capa.addText(title || 'Relatório', { x:0.5, y:2.8, w:W-1, h:1.4, fontSize:36, color:TEXT, bold:true, align:'center' });
+    capa.addText(`${toolName || 'Brentor'} · ${new Date().toLocaleDateString('pt-BR')}`,
+      { x:0.5, y:4.3, w:W-1, h:0.5, fontSize:15, color:MUTED, align:'center' });
+
+    // cada seção do relatório vira um ou mais slides de tópicos
+    const secoes = node.querySelectorAll('.report-section, .focus-section, .ps-section');
+    const blocos = secoes.length ? Array.from(secoes) : [node];
+    blocos.forEach(sec => {
+      const h = sec.querySelector('h3, h2');
+      const tituloSec = h ? h.innerText.trim() : (title || 'Resumo');
+      const linhas = [];
+      sec.querySelectorAll('p, li').forEach(p => {
+        const t = p.innerText.replace(/\s+/g,' ').trim();
+        if (t && t.length > 2 && !linhas.includes(t)) linhas.push(t.slice(0, 260));
+      });
+      if (!linhas.length) return;
+      for (let i = 0; i < linhas.length; i += MAX_LINHAS) {
+        const parte = linhas.slice(i, i + MAX_LINHAS);
+        const s = pptx.addSlide(); s.background = { color: DARK };
+        s.addText(tituloSec.toUpperCase() + (i ? ' (cont.)' : ''),
+          { x:PAD, y:0.6, w:W-2*PAD, h:0.7, fontSize:22, color:TEXT, bold:true });
+        s.addShape('line', { x:PAD, y:1.35, w:W-2*PAD, h:0, line:{ color:LINE, width:1 } });
+        s.addText(parte.map(t => ({ text:t, options:{ bullet:{ code:'2022' }, breakLine:true } })),
+          { x:PAD, y:1.7, w:W-2*PAD, h:5.2, fontSize:14, color:TEXT, lineSpacingMultiple:1.2, valign:'top' });
+        s.addText('Brentor.ai', { x:PAD, y:6.9, w:3, h:0.3, fontSize:10, color:MUTED });
+      }
+    });
+    return pptx;
+  };
+
+  /* Compartilha um arquivo de verdade quando o aparelho permite (celular);
+     no desktop a maioria dos navegadores não aceita anexo, então baixamos o
+     arquivo e avisamos o usuário em vez de falhar em silêncio. */
+  async function shareBlob(blob, filename, title) {
+    try {
+      const file = new File([blob], filename, { type: blob.type });
+      if (navigator.canShare && navigator.canShare({ files:[file] })) {
+        await navigator.share({ files:[file], title });
+        return;
+      }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    downloadBlob(blob, filename, blob.type);
+    B.toast('Seu navegador não anexa arquivos direto — o arquivo foi baixado, é só anexar onde quiser', 'info');
+  }
+
+  /* Menu único de formatos usado por "Salvar" e "Compartilhar" em todas as
+     ferramentas. opts: { node, title, toolName, onPDF, onPPT } — onPDF/onPPT
+     existem para o Display, que tem exportadores próprios de slides. */
+  B.exportMenu = function (anchor, opts) {
+    document.querySelector('.menu')?.remove();
+    const compartilhar = opts.mode === 'share';
+    const rotulo = compartilhar ? 'Compartilhar em' : 'Salvar em';
+    const menu = el(`<div class="menu export-menu">
+      <div class="em-title">${rotulo}</div>
+      <button class="mi" data-f="pdf">${B.icon.pdf} PDF <span class="em-hint">documento</span></button>
+      <button class="mi" data-f="doc">${B.icon.doc} DOC <span class="em-hint">Word · Google Docs</span></button>
+      <button class="mi" data-f="ppt">${B.icon.display} PPT <span class="em-hint">apresentação</span></button>
+      <div class="sep"></div>
+      <button class="mi" data-f="txt">${B.icon.download} Texto simples <span class="em-hint">.txt</span></button>
+    </div>`);
+    document.body.appendChild(menu);
+
+    // ancora o menu no botão, sem deixar vazar da tela
+    const r = anchor.getBoundingClientRect();
+    const larg = menu.offsetWidth || 230;
+    menu.style.top = Math.min(r.bottom + 8, window.innerHeight - menu.offsetHeight - 12) + 'px';
+    menu.style.left = Math.max(12, Math.min(r.left, document.documentElement.clientWidth - larg - 12)) + 'px';
+    menu.style.right = 'auto';
+
+    const close = () => { menu.remove(); document.removeEventListener('click', onDoc, true); };
+    function onDoc(e) { if (!menu.contains(e.target) && !anchor.contains(e.target)) close(); }
+    setTimeout(() => document.addEventListener('click', onDoc, true), 0);
+
+    menu.querySelectorAll('[data-f]').forEach(b => b.onclick = async () => {
+      const f = b.dataset.f; close();
+      const node = opts.node ? (typeof opts.node === 'function' ? opts.node() : opts.node) : null;
+      const title = opts.title || 'Relatório Brentor';
+      try {
+        if (f === 'pdf') {
+          if (compartilhar) B.toast('Gerando o PDF — salve pelo diálogo de impressão e compartilhe o arquivo', 'info');
+          if (opts.onPDF) opts.onPDF(); else B.exportPDF(node, title, opts.toolName);
+        }
+        else if (f === 'doc') {
+          if (compartilhar) await shareBlob(buildDOC(node, title), safeName(title) + '.doc', title);
+          else B.exportDOC(node, title);
+        }
+        else if (f === 'ppt') {
+          if (opts.onPPT) { opts.onPPT(compartilhar); return; }
+          B.toast('Montando a apresentação…', 'info');
+          const pptx = await B.exportReportPPTX(node, title, opts.toolName);
+          if (!pptx) return;
+          if (compartilhar) await shareBlob(await pptx.write({ outputType:'blob' }), safeName(title) + '.pptx', title);
+          else { await pptx.writeFile({ fileName: safeName(title) + '.pptx' }); B.toast('Apresentação .pptx salva', 'success'); }
+        }
+        else {
+          const texto = B.nodeText(node);
+          if (compartilhar) B.share('Brentor.ai · ' + title, texto.slice(0, 280) + '…');
+          else B.exportText(texto, safeName(title));
+        }
+      } catch (e) { B.toast('Não foi possível gerar o arquivo: ' + e.message, 'warn'); }
+    });
+  };
+
+  /* Botões padrão de exportação — mesma dupla em todas as ferramentas. */
+  B.exportButtons = function (opts) {
+    return `<button class="btn subtle sm" data-xm="save">${B.icon.download} Salvar ${B.icon.chevD}</button>
+      <button class="btn subtle sm" data-xm="share">${B.icon.share} Compartilhar ${B.icon.chevD}</button>`;
+  };
+  B.wireExportButtons = function (scope, opts) {
+    scope.querySelectorAll('[data-xm]').forEach(b => b.onclick = () =>
+      B.exportMenu(b, Object.assign({}, opts, { mode: b.dataset.xm })));
   };
 
   /* Compartilhar (Web Share API → fallback copiar). */
