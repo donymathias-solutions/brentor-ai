@@ -80,7 +80,6 @@
             <textarea class="textarea" id="focusContent" style="min-height:110px"
               placeholder="Cole o texto do e-mail, trecho do relatório, conteúdo da apresentação, anotações de reunião…"></textarea>
           </div>
-          <div id="focusFzSlot"></div>
           ${isV2 ? `
           <div class="field">
             <label>Links de notícias ou URLs para análise <span class="muted" style="font-weight:400;font-size:12px">(opcional — Focus 2.0 lê e incorpora o conteúdo)</span></label>
@@ -90,7 +89,9 @@
               <button class="btn ghost sm" id="focusUrlAdd" type="button">${ic.plus} Adicionar</button>
             </div>
             <div class="hint" style="margin-top:6px">${ic.web||''}Cole links de notícias, artigos, relatórios online ou qualquer página pública. O Focus 2.0 acessa, lê o conteúdo e incorpora na análise — combinando com o texto que você colou acima.</div>
-          </div>
+          </div>` : ''}
+          <div id="focusFzSlot"></div>
+          ${isV2 ? `
           <div class="field">
             <label>Perfil da audiência <span class="muted" style="font-weight:400;font-size:12px">(para direcionar a linguagem)</span></label>
             <div class="seg" id="focusAudSeg">

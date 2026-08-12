@@ -233,7 +233,6 @@
             <label>Tudo que você já sabe sobre ela (opcional, mas melhora o resultado)</label>
             <textarea class="textarea" id="anaInfo" placeholder="Site, setor, porte, cidade, contatos, histórico de relacionamento, o que te preocupa…"></textarea>
           </div>
-          ${fz.html}
           <div class="field">
             <label>Links relevantes <span class="muted" style="font-weight:400;font-size:12px">(opcional — site oficial, Instagram, LinkedIn, notícias…)</span></label>
             <div id="anaLinks" class="link-inputs" style="display:flex;flex-direction:column;gap:8px">
@@ -242,6 +241,7 @@
             <button class="btn ghost sm" id="anaAddLink" style="margin-top:6px">${ic.plus} Adicionar outro link</button>
             <div class="hint">Cole links do site oficial, redes sociais (Instagram, Facebook, LinkedIn), matérias de jornal ou qualquer fonte útil.</div>
           </div>
+          ${fz.html}
           <div class="field">
             <label>Qual a relação com a sua empresa?</label>
             <div class="seg cat" id="anaRel">
