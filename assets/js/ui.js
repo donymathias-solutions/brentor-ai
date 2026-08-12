@@ -254,8 +254,13 @@
       <link rel="stylesheet" href="${cssHref}">
       <style>
       /* ===== Tema de impressão Brentor — claro, profissional ===== */
-      /* margem padrão em todos os lados para o texto não colar na borda do papel */
-      @page{margin:18mm 18mm 20mm 18mm}
+      /* Margem superior zerada de propósito: é nela que o navegador desenha o
+         próprio cabeçalho (data + título da aba, em preto). Sem espaço, ele não
+         desenha — e quem apresenta o documento passa a ser o cabeçalho Brentor,
+         que traz a mesma informação. O respiro do topo vem do padding do
+         cabeçalho. As demais margens continuam, inclusive a de baixo, que é
+         onde fica o rodapé com o nome do arquivo. */
+      @page{margin:0 18mm 20mm 18mm}
       :root{
         --bg-900:#fff;--bg-800:#fff;--bg-700:#fff;--bg-600:#f1f5f9;
         --surface:#fff;--surface-2:#f6f8fb;--line:#d8dfeb;--line-soft:#e6eaf2;
@@ -273,10 +278,16 @@
       html,body{background:#fff!important;color:#111827!important;padding:0;margin:0;font-size:13px;line-height:1.55}
       body :is(.toolbar,.next-cta,.btn,.menu,button,.dots,.thumbs,.slide-nav){display:none!important}
 
-      /* Cabeçalho do documento */
-      .pdf-head{display:flex;align-items:center;gap:12px;border-bottom:3px solid #1d4ed8;padding-bottom:12px;margin-bottom:24px}
+      /* Cabeçalho do documento — repetido em TODAS as páginas.
+         O <thead> de uma tabela é a única forma que os navegadores repetem
+         de verdade a cada página impressa; por isso o relatório inteiro vai
+         dentro de uma tabela de uma coluna só. */
+      .pdf-doc{width:100%;border-collapse:collapse}
+      .pdf-doc > thead > tr > td,.pdf-doc > tbody > tr > td{padding:0;border:none;vertical-align:top}
+      .pdf-head{display:flex;align-items:center;gap:12px;border-bottom:3px solid #1d4ed8;
+        padding:14mm 0 12px;margin-bottom:24px;background:#fff}
       .pdf-head img{height:34px;width:auto}
-      .pdf-head span{color:#6b7280;font-size:11px;margin-left:auto}
+      .pdf-head span{color:#6b7280;font-size:11px;margin-left:auto;text-align:right}
 
       /* Cartões e seções */
       .card{background:#fff!important;border:none!important;border-radius:0!important;padding:0!important}
@@ -340,8 +351,12 @@
       .kpi-grid,.fact-list,.grid{break-inside:auto}
       h1,h2,h3,h4{break-after:avoid}
       </style></head><body>
-      <div class="pdf-head"><img src="${location.origin}/assets/img/brentor-logo.png" alt="Brentor.ai"><span>${B.esc(title)} · Gerado em ${new Date().toLocaleString('pt-BR')}</span></div>
-      ${node.outerHTML}
+      <table class="pdf-doc">
+        <thead><tr><td>
+          <div class="pdf-head"><img src="${location.origin}/assets/img/brentor-logo.png" alt="Brentor.ai"><span>${B.esc(title)} · Gerado em ${new Date().toLocaleString('pt-BR')}</span></div>
+        </td></tr></thead>
+        <tbody><tr><td>${node.outerHTML}</td></tr></tbody>
+      </table>
       <script>${PRINT_WHEN_READY}<\/script></body></html>`);
     w.document.close();
     // troca a URL exibida no rodapé de impressão ("about:blank") por um rótulo legível
@@ -663,69 +678,14 @@
     return pptx;
   };
 
-  /* Compartilhar de verdade: primeiro tenta a bandeja do próprio aparelho
-     (celular anexa o arquivo direto na conversa). Onde o navegador não tem
-     essa API — a maioria dos desktops — abrimos a nossa tela de destinos, em
-     vez de simplesmente baixar o arquivo e virar um segundo botão "Salvar". */
-  async function shareBlob(blob, filename, title, texto) {
-    try {
-      const file = new File([blob], filename, { type: blob.type });
-      if (navigator.canShare && navigator.canShare({ files:[file] })) {
-        await navigator.share({ files:[file], title, text: (texto||'').slice(0, 280) });
-        return;
-      }
-    } catch (e) { if (e && e.name === 'AbortError') return; }
-    B.shareSheet({ blob, filename, title, texto });
-  }
-
-  /* Tela "Compartilhar em": escolhe o destino. Como nenhum site pode anexar um
-     arquivo sozinho no WhatsApp ou no e-mail, baixamos o arquivo e abrimos o
-     destino já com a mensagem pronta — o usuário só anexa e envia. */
-  B.shareSheet = function ({ blob, filename, title, texto, apenasTexto }) {
-    const resumo = (texto || '').replace(/\s+/g, ' ').trim().slice(0, 400);
-    const msg = `${title}\n\n${resumo}${resumo.length >= 400 ? '…' : ''}\n\nGerado com Brentor.ai`;
-    const destinos = [
-      { k:'whatsapp', ic:'whatsapp', nome:'WhatsApp',       hint:'abre a conversa com o texto pronto' },
-      { k:'email',    ic:'mail',    nome:'E-mail',          hint:'abre seu programa de e-mail' },
-      { k:'copiar',   ic:'copy',    nome:'Copiar texto',    hint:'cola em qualquer lugar' },
-    ];
-    if (!apenasTexto) destinos.push({ k:'baixar', ic:'download', nome:'Baixar o arquivo', hint:filename });
-
-    const m = B.modal({
-      wide: true,
-      title: 'Compartilhar em',
-      body: `<div class="share-grid">${destinos.map(d => `
-        <button class="share-dest" data-d="${d.k}">
-          <span class="sd-ic">${B.icon[d.ic] || B.icon.share}</span>
-          <span class="sd-txt"><b>${d.nome}</b><span>${B.esc(d.hint)}</span></span>
-        </button>`).join('')}</div>
-        ${apenasTexto ? '' : `<p class="hint" style="margin-top:14px">O arquivo <b>${B.esc(filename)}</b> é baixado
-          automaticamente ao escolher WhatsApp ou e-mail — basta anexá-lo na mensagem que abrir.</p>`}`,
-      actions: [{ label:'Fechar', class:'ghost' }],
-    });
-
-    const baixar = () => { if (blob) downloadBlob(blob, filename, blob.type); };
-    m.el.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
-      const d = b.dataset.d;
-      if (d === 'whatsapp') { baixar(); window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank', 'noopener'); }
-      else if (d === 'email') { baixar(); window.location.href = 'mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(msg); }
-      else if (d === 'copiar') { navigator.clipboard?.writeText(msg).then(()=>B.toast('Texto copiado','success'), ()=>B.toast('Não foi possível copiar','warn')); }
-      else baixar();
-      if (d === 'baixar') B.toast('Arquivo baixado', 'success');
-      m.close();
-    });
-  };
-
-  /* Menu único de formatos usado por "Salvar" e "Compartilhar" em todas as
-     ferramentas. opts: { node, title, toolName, onPDF, onPPT } — onPDF/onPPT
-     existem para o Display, que tem exportadores próprios de slides. */
+  /* Menu único de formatos usado pelo "Salvar" em todas as ferramentas.
+     opts: { node, title, toolName, onPDF, onPPT } — onPDF/onPPT existem para
+     o Display, que tem exportadores próprios de slides. */
   B.exportMenu = function (anchor, opts) {
     document.querySelector('.menu')?.remove();
-    const compartilhar = opts.mode === 'share';
-    const rotulo = compartilhar ? 'Compartilhar em' : 'Salvar em';
     const menu = el(`<div class="menu export-menu">
-      <div class="em-title">${rotulo}</div>
-      ${compartilhar ? '' : `<button class="mi" data-f="pdf">${B.icon.pdf} PDF <span class="em-hint">via impressão</span></button>`}
+      <div class="em-title">Salvar em</div>
+      <button class="mi" data-f="pdf">${B.icon.pdf} PDF <span class="em-hint">via impressão</span></button>
       <button class="mi" data-f="doc">${B.icon.doc} DOC <span class="em-hint">Word · Google Docs</span></button>
       <button class="mi" data-f="ppt">${B.icon.display} PPT <span class="em-hint">apresentação</span></button>
       <div class="sep"></div>
@@ -749,37 +709,30 @@
       const node = opts.node ? (typeof opts.node === 'function' ? opts.node() : opts.node) : null;
       const title = opts.title || 'Relatório Brentor';
       try {
-        const texto = node ? B.nodeText(node) : '';
         if (f === 'pdf') {
           if (opts.onPDF) opts.onPDF(); else B.exportPDF(node, title, opts.toolName);
         }
-        else if (f === 'doc') {
-          if (compartilhar) await shareBlob(buildDOC(node, title), safeName(title) + '.doc', title, texto);
-          else B.exportDOC(node, title);
-        }
+        else if (f === 'doc') B.exportDOC(node, title);
         else if (f === 'ppt') {
-          if (opts.onPPT) { opts.onPPT(compartilhar); return; }
+          if (opts.onPPT) { opts.onPPT(); return; }
           B.toast('Montando a apresentação…', 'info');
           const pptx = await B.exportReportPPTX(node, title, opts.toolName);
           if (!pptx) return;
-          if (compartilhar) await shareBlob(await pptx.write({ outputType:'blob' }), safeName(title) + '.pptx', title, texto);
-          else { await pptx.writeFile({ fileName: safeName(title) + '.pptx' }); B.toast('Apresentação .pptx salva', 'success'); }
+          await pptx.writeFile({ fileName: safeName(title) + '.pptx' });
+          B.toast('Apresentação .pptx salva', 'success');
         }
-        else {
-          if (compartilhar) B.shareSheet({ title:'Brentor.ai · ' + title, texto, apenasTexto:true });
-          else B.exportText(texto, safeName(title));
-        }
+        else B.exportText(B.nodeText(node), safeName(title));
       } catch (e) { B.toast('Não foi possível gerar o arquivo: ' + e.message, 'warn'); }
     });
   };
 
-  /* Botões padrão de exportação — o mesmo trio em todas as ferramentas.
+  /* Botões padrão de exportação — a mesma dupla em todas as ferramentas.
      "Imprimir PDF" é atalho de um clique: monta o documento e já abre a
-     impressão, sem passar por menu. */
+     impressão, sem passar por menu. Quem quiser compartilhar salva ou
+     imprime primeiro e compartilha o arquivo pelo próprio aparelho. */
   B.exportButtons = function (opts) {
     return `<button class="btn subtle sm" data-xm="print">${B.icon.pdf} Imprimir PDF</button>
-      <button class="btn subtle sm" data-xm="save">${B.icon.download} Salvar ${B.icon.chevD}</button>
-      <button class="btn subtle sm" data-xm="share">${B.icon.share} Compartilhar ${B.icon.chevD}</button>`;
+      <button class="btn subtle sm" data-xm="save">${B.icon.download} Salvar ${B.icon.chevD}</button>`;
   };
   B.wireExportButtons = function (scope, opts) {
     scope.querySelectorAll('[data-xm]').forEach(b => b.onclick = () => {

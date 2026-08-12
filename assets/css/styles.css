@@ -658,20 +658,6 @@ svg { width: 18px; height: 18px; flex: 0 0 auto; }
 .export-menu .em-hint { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--text-faint); }
 .btn[data-xm] svg:last-child { width: 13px; height: 13px; opacity: .6; margin-left: -2px; }
 
-/* Tela "Compartilhar em" — escolha do destino, igual em todas as ferramentas */
-.share-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.share-dest { display: flex; align-items: center; gap: 12px; text-align: left; padding: 14px;
-  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface);
-  transition: border-color .14s, background .14s; }
-.share-dest:hover { border-color: var(--brand-500); background: var(--surface-2); }
-.share-dest .sd-ic { width: 38px; height: 38px; border-radius: 10px; flex: 0 0 auto; display: grid;
-  place-items: center; background: var(--surface-2); border: 1px solid var(--line-soft); color: var(--brand-400); }
-.share-dest .sd-ic svg { width: 19px; height: 19px; }
-.share-dest .sd-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.share-dest .sd-txt b { font-size: 14px; }
-.share-dest .sd-txt span { font-size: 11.5px; color: var(--text-mute); overflow: hidden;
-  text-overflow: ellipsis; white-space: nowrap; }
-
 .empty { text-align: center; padding: 40px 20px; color: var(--text-mute); }
 .empty .ei { width: 54px; height: 54px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); display: grid; place-items: center; margin: 0 auto 14px; color: var(--text-faint); }
 
@@ -1096,8 +1082,6 @@ svg { width: 18px; height: 18px; flex: 0 0 auto; }
   .content { padding: 14px; }
   .card { padding: 16px; }
   .card.pad-lg { padding: 18px; }
-
-  .share-grid { grid-template-columns: 1fr; }
 
   /* padding do .content cai para 14px — a conta da altura do Chat acompanha */
   .chat-page { height: calc(100dvh - var(--topbar-h) - 28px); gap: 10px; min-height: 380px; }
