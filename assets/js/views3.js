@@ -72,15 +72,15 @@
       <div class="card pad-lg fade-up" style="margin-top:18px">
         <div class="form-grid">
           <div class="field">
+            <label>O que você quer extrair / qual é o foco? <span class="muted" style="font-weight:400;font-size:12px">(opcional)</span></label>
+            <input class="input" id="focusObj" placeholder="Ex.: pontos relevantes para o negócio · riscos da proposta · itens de ação da reunião · KPIs financeiros">
+          </div>
+          <div class="field">
             <label>Cole o conteúdo aqui <span class="muted" style="font-weight:400;font-size:12px">(ou apenas anexe o arquivo abaixo)</span></label>
             <textarea class="textarea" id="focusContent" style="min-height:110px"
               placeholder="Cole o texto do e-mail, trecho do relatório, conteúdo da apresentação, anotações de reunião…"></textarea>
           </div>
           <div id="focusFzSlot"></div>
-          <div class="field">
-            <label>O que você quer extrair / qual é o foco? <span class="muted" style="font-weight:400;font-size:12px">(opcional)</span></label>
-            <input class="input" id="focusObj" placeholder="Ex.: pontos relevantes para o negócio · riscos da proposta · itens de ação da reunião · KPIs financeiros">
-          </div>
           ${isV2 ? `
           <div class="field">
             <label>Links de notícias ou URLs para análise <span class="muted" style="font-weight:400;font-size:12px">(opcional — Focus 2.0 lê e incorpora o conteúdo)</span></label>

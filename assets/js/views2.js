@@ -423,7 +423,8 @@
     const isPremium = ['gold','diamond'].includes(plan);
 
     mount.innerHTML = `
-      <div class="view-head fade-up" style="margin-bottom:14px">
+      <div class="chat-page">
+      <div class="view-head fade-up">
         <h1><span class="tool-ic ic-green">${ic.chat}</span> Chat Brentor</h1>
         <p>Seu assistente do portal. Indica a melhor ferramenta, ensina como usá-la e orienta sobre as soluções disponíveis. Foco exclusivo em negócios e no uso do Brentor.</p>
       </div>
@@ -434,8 +435,9 @@
             <textarea id="chatInput" rows="1" placeholder="Pergunte algo ou descreva sua necessidade…"></textarea>
             <button class="btn primary send" id="chatSend">${ic.send}</button>
           </div>
-          <div class="scope-note">ðŸ”’ O Chat Brentor responde apenas temas ligados ao portal e a negócios. Assuntos como futebol, culinária ou entretenimento estão fora do escopo.</div>
+          <div class="scope-note">${ic.lock} O Chat Brentor responde apenas temas ligados ao portal e a negócios. Outros assuntos fora do escopo não serão respondidos.</div>
         </div>
+      </div>
       </div>`;
 
     const scroll = mount.querySelector('#chatScroll');
