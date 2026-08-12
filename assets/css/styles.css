@@ -669,7 +669,10 @@ svg { width: 18px; height: 18px; flex: 0 0 auto; }
 .empty .ei { width: 54px; height: 54px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); display: grid; place-items: center; margin: 0 auto 14px; color: var(--text-faint); }
 
 /* History list */
-.hist-item { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--bg-800); transition: border-color .14s; }
+/* min-width:0 é obrigatório: a linha do histórico é item de um grid e o título
+   com reticências tem largura mínima do texto inteiro. Sem isso, um título
+   longo vira a largura da coluna e estoura a página no celular. */
+.hist-item { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--bg-800); transition: border-color .14s; min-width: 0; }
 .hist-item:hover { border-color: var(--brand-500); }
 .hist-item .hi-ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; flex: 0 0 auto; }
 .hist-item .hi-main { flex: 1; min-width: 0; } .hist-item .hi-main b { font-size: 14px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -831,7 +834,7 @@ svg { width: 18px; height: 18px; flex: 0 0 auto; }
 .hist-plan-bar .hpb-right { margin-left:auto; color:var(--text-mute); font-size:12px; }
 
 .hist-list { display:flex; flex-direction:column; gap:8px; }
-.hist-card { display:flex; align-items:center; gap:14px; padding:14px 16px;
+.hist-card { display:flex; align-items:center; gap:14px; padding:14px 16px; min-width:0;
   border:1px solid var(--line-soft); border-radius:var(--r-md); background:var(--surface);
   transition:border-color .14s, background .14s; }
 .hist-card:hover { border-color:rgba(59,130,246,.3); background:var(--surface-2); }
