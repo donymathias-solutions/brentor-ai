@@ -1081,7 +1081,13 @@
         title: 'Display - ' + (p.topic || 'Apresentacao'),
         toolName: 'Display',
         onPDF: () => resultNode._exportSlidesPDF(),
-        onPPT: () => resultNode._exportSlidesPPTX(),
+        onPPT: (compartilhar) => {
+          resultNode._exportSlidesPPTX();
+          // o .pptx da apresentação é gerado e baixado pelo exportador nativo;
+          // no modo compartilhar seguimos para a escolha do destino
+          if (compartilhar) B.shareSheet({ title:'Brentor.ai · Apresentação',
+            texto: B.nodeText(resultNode), apenasTexto: true });
+        },
       });
     } else {
       wireExports(toolbarRow, () => resultNode, 'Display - '+(p.topic||p.out), p, 'Display');

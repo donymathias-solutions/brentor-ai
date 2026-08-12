@@ -663,20 +663,58 @@
     return pptx;
   };
 
-  /* Compartilha um arquivo de verdade quando o aparelho permite (celular);
-     no desktop a maioria dos navegadores não aceita anexo, então baixamos o
-     arquivo e avisamos o usuário em vez de falhar em silêncio. */
-  async function shareBlob(blob, filename, title) {
+  /* Compartilhar de verdade: primeiro tenta a bandeja do próprio aparelho
+     (celular anexa o arquivo direto na conversa). Onde o navegador não tem
+     essa API — a maioria dos desktops — abrimos a nossa tela de destinos, em
+     vez de simplesmente baixar o arquivo e virar um segundo botão "Salvar". */
+  async function shareBlob(blob, filename, title, texto) {
     try {
       const file = new File([blob], filename, { type: blob.type });
       if (navigator.canShare && navigator.canShare({ files:[file] })) {
-        await navigator.share({ files:[file], title });
+        await navigator.share({ files:[file], title, text: (texto||'').slice(0, 280) });
         return;
       }
     } catch (e) { if (e && e.name === 'AbortError') return; }
-    downloadBlob(blob, filename, blob.type);
-    B.toast('Seu navegador não anexa arquivos direto — o arquivo foi baixado, é só anexar onde quiser', 'info');
+    B.shareSheet({ blob, filename, title, texto });
   }
+
+  /* Tela "Compartilhar em": escolhe o destino. Como nenhum site pode anexar um
+     arquivo sozinho no WhatsApp ou no e-mail, baixamos o arquivo e abrimos o
+     destino já com a mensagem pronta — o usuário só anexa e envia. */
+  B.shareSheet = function ({ blob, filename, title, texto, apenasTexto }) {
+    const resumo = (texto || '').replace(/\s+/g, ' ').trim().slice(0, 400);
+    const msg = `${title}\n\n${resumo}${resumo.length >= 400 ? '…' : ''}\n\nGerado com Brentor.ai`;
+    const destinos = [
+      { k:'whatsapp', ic:'whatsapp', nome:'WhatsApp',       hint:'abre a conversa com o texto pronto' },
+      { k:'email',    ic:'mail',    nome:'E-mail',          hint:'abre seu programa de e-mail' },
+      { k:'copiar',   ic:'copy',    nome:'Copiar texto',    hint:'cola em qualquer lugar' },
+    ];
+    if (!apenasTexto) destinos.push({ k:'baixar', ic:'download', nome:'Baixar o arquivo', hint:filename });
+
+    const m = B.modal({
+      wide: true,
+      title: 'Compartilhar em',
+      body: `<div class="share-grid">${destinos.map(d => `
+        <button class="share-dest" data-d="${d.k}">
+          <span class="sd-ic">${B.icon[d.ic] || B.icon.share}</span>
+          <span class="sd-txt"><b>${d.nome}</b><span>${B.esc(d.hint)}</span></span>
+        </button>`).join('')}</div>
+        ${apenasTexto ? '' : `<p class="hint" style="margin-top:14px">O arquivo <b>${B.esc(filename)}</b> é baixado
+          automaticamente ao escolher WhatsApp ou e-mail — basta anexá-lo na mensagem que abrir.</p>`}`,
+      actions: [{ label:'Fechar', class:'ghost' }],
+    });
+
+    const baixar = () => { if (blob) downloadBlob(blob, filename, blob.type); };
+    m.el.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
+      const d = b.dataset.d;
+      if (d === 'whatsapp') { baixar(); window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank', 'noopener'); }
+      else if (d === 'email') { baixar(); window.location.href = 'mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(msg); }
+      else if (d === 'copiar') { navigator.clipboard?.writeText(msg).then(()=>B.toast('Texto copiado','success'), ()=>B.toast('Não foi possível copiar','warn')); }
+      else baixar();
+      if (d === 'baixar') B.toast('Arquivo baixado', 'success');
+      m.close();
+    });
+  };
 
   /* Menu único de formatos usado por "Salvar" e "Compartilhar" em todas as
      ferramentas. opts: { node, title, toolName, onPDF, onPPT } — onPDF/onPPT
@@ -687,11 +725,11 @@
     const rotulo = compartilhar ? 'Compartilhar em' : 'Salvar em';
     const menu = el(`<div class="menu export-menu">
       <div class="em-title">${rotulo}</div>
-      <button class="mi" data-f="pdf">${B.icon.pdf} PDF <span class="em-hint">documento</span></button>
+      ${compartilhar ? '' : `<button class="mi" data-f="pdf">${B.icon.pdf} PDF <span class="em-hint">via impressão</span></button>`}
       <button class="mi" data-f="doc">${B.icon.doc} DOC <span class="em-hint">Word · Google Docs</span></button>
       <button class="mi" data-f="ppt">${B.icon.display} PPT <span class="em-hint">apresentação</span></button>
       <div class="sep"></div>
-      <button class="mi" data-f="txt">${B.icon.download} Texto simples <span class="em-hint">.txt</span></button>
+      <button class="mi" data-f="txt">${B.icon.doc} Texto simples <span class="em-hint">.txt</span></button>
     </div>`);
     document.body.appendChild(menu);
 
@@ -711,12 +749,12 @@
       const node = opts.node ? (typeof opts.node === 'function' ? opts.node() : opts.node) : null;
       const title = opts.title || 'Relatório Brentor';
       try {
+        const texto = node ? B.nodeText(node) : '';
         if (f === 'pdf') {
-          if (compartilhar) B.toast('Gerando o PDF — salve pelo diálogo de impressão e compartilhe o arquivo', 'info');
           if (opts.onPDF) opts.onPDF(); else B.exportPDF(node, title, opts.toolName);
         }
         else if (f === 'doc') {
-          if (compartilhar) await shareBlob(buildDOC(node, title), safeName(title) + '.doc', title);
+          if (compartilhar) await shareBlob(buildDOC(node, title), safeName(title) + '.doc', title, texto);
           else B.exportDOC(node, title);
         }
         else if (f === 'ppt') {
@@ -724,26 +762,34 @@
           B.toast('Montando a apresentação…', 'info');
           const pptx = await B.exportReportPPTX(node, title, opts.toolName);
           if (!pptx) return;
-          if (compartilhar) await shareBlob(await pptx.write({ outputType:'blob' }), safeName(title) + '.pptx', title);
+          if (compartilhar) await shareBlob(await pptx.write({ outputType:'blob' }), safeName(title) + '.pptx', title, texto);
           else { await pptx.writeFile({ fileName: safeName(title) + '.pptx' }); B.toast('Apresentação .pptx salva', 'success'); }
         }
         else {
-          const texto = B.nodeText(node);
-          if (compartilhar) B.share('Brentor.ai · ' + title, texto.slice(0, 280) + '…');
+          if (compartilhar) B.shareSheet({ title:'Brentor.ai · ' + title, texto, apenasTexto:true });
           else B.exportText(texto, safeName(title));
         }
       } catch (e) { B.toast('Não foi possível gerar o arquivo: ' + e.message, 'warn'); }
     });
   };
 
-  /* Botões padrão de exportação — mesma dupla em todas as ferramentas. */
+  /* Botões padrão de exportação — o mesmo trio em todas as ferramentas.
+     "Imprimir PDF" é atalho de um clique: monta o documento e já abre a
+     impressão, sem passar por menu. */
   B.exportButtons = function (opts) {
-    return `<button class="btn subtle sm" data-xm="save">${B.icon.download} Salvar ${B.icon.chevD}</button>
+    return `<button class="btn subtle sm" data-xm="print">${B.icon.pdf} Imprimir PDF</button>
+      <button class="btn subtle sm" data-xm="save">${B.icon.download} Salvar ${B.icon.chevD}</button>
       <button class="btn subtle sm" data-xm="share">${B.icon.share} Compartilhar ${B.icon.chevD}</button>`;
   };
   B.wireExportButtons = function (scope, opts) {
-    scope.querySelectorAll('[data-xm]').forEach(b => b.onclick = () =>
-      B.exportMenu(b, Object.assign({}, opts, { mode: b.dataset.xm })));
+    scope.querySelectorAll('[data-xm]').forEach(b => b.onclick = () => {
+      if (b.dataset.xm === 'print') {
+        const node = typeof opts.node === 'function' ? opts.node() : opts.node;
+        if (opts.onPDF) opts.onPDF(); else B.exportPDF(node, opts.title || 'Relatório Brentor', opts.toolName);
+        return;
+      }
+      B.exportMenu(b, Object.assign({}, opts, { mode: b.dataset.xm }));
+    });
   };
 
   /* Compartilhar (Web Share API → fallback copiar). */
