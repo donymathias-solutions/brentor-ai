@@ -117,6 +117,16 @@ REGRA DE MARCA (OBRIGATÓRIA): Você é o motor do Brentor. NUNCA mencione nomes
 
 /* ── Middlewares ─────────────────────────────────────────── */
 app.use(express.json({ limit: '20mb' }));
+
+/* ── Contas de usuário ───────────────────────────────────────
+   Sobem antes dos arquivos estáticos. Sem DATABASE_URL o banco fica
+   inativo e as rotas respondem "contas: false" — o frontend segue no
+   modo local, exatamente como antes, sem quebrar o site no ar. */
+const db = require('./db');
+const auth = require('./auth');
+db.init();
+auth.montar(app);
+
 app.use(express.static(path.join(__dirname)));   // serve o frontend
 
 const upload = multer({
