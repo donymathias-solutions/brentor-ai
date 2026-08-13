@@ -120,17 +120,19 @@
           <div class="sub">Entre com sua conta empresarial para continuar.</div>
           <form id="loginForm">
             <div class="field"><label>E-mail corporativo</label>
-              <input class="input" id="loginEmail" type="email" placeholder="voce@empresa.com" value="diretoria@empresa.com" required></div>
+              <input class="input" id="loginEmail" type="email" placeholder="voce@empresa.com" value="${B.contas.ativo?'':'diretoria@empresa.com'}" required></div>
             <div class="field"><label>Senha</label>
-              <input class="input" id="loginPass" type="password" placeholder="••••••••" value="brentor" required></div>
+              <input class="input" id="loginPass" type="password" placeholder="••••••••" value="${B.contas.ativo?'':'brentor'}" required></div>
             <div class="row-between">
               <label style="display:flex;gap:8px;align-items:center;color:var(--text-soft)"><input type="checkbox" checked style="accent-color:var(--brand-500)"> Manter conectado</label>
               <a href="#" onclick="return false">Esqueci a senha</a>
             </div>
             <button class="btn primary block lg" type="submit">${ic.lock} Entrar no Brentor</button>
           </form>
+          <div id="authErr" class="hidden" style="margin-top:14px;color:var(--red);font-size:13px;padding:10px 12px;background:var(--red-soft);border-radius:8px;border:1px solid rgba(248,113,113,.25)"></div>
+          ${B.contas.ativo ? '' : `
           <div class="demo-note" style="margin-top:14px">${ic.info} <b>Demonstração:</b> qualquer e-mail e senha entram.</div>
-          <button class="btn ghost block" id="demoBtn" style="margin-top:10px">${ic.bolt} Entrar com conta demonstração</button>
+          <button class="btn ghost block" id="demoBtn" style="margin-top:10px">${ic.bolt} Entrar com conta demonstração</button>`}
           <div style="margin-top:18px;padding-top:18px;border-top:1px solid var(--line-soft);text-align:center">
             <div class="muted" style="font-size:12.5px;margin-bottom:10px">Ainda não tem conta?</div>
             <button class="btn block" id="freeBtn" style="background:var(--green-soft);border-color:rgba(52,211,153,.35);color:var(--green)">${ic.spark} Criar conta gratuita — 15 dias · 350 créditos</button>
@@ -140,16 +142,39 @@
       </div>
     </div>`;
 
-    function doLogin(email) {
+    const errEl = document.getElementById('authErr');
+    const mostrarErro = (msg) => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
+
+    /* Modo demonstração (sem backend de contas): qualquer e-mail entra. */
+    function doLoginLocal(email) {
       const name = email.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g, c=>c.toUpperCase());
       const company = (email.split('@')[1]||'empresa').split('.')[0].replace(/\b\w/g,c=>c.toUpperCase());
       store.login({ name, email, company }, store.get().plan);
       B.toast('Bem-vindo ao Brentor.ai','success');
       B.router.go('home');
     }
-    document.getElementById('loginForm').onsubmit = (e) => { e.preventDefault();
-      const email = document.getElementById('loginEmail').value.trim() || 'diretoria@empresa.com'; doLogin(email); };
-    document.getElementById('demoBtn').onclick = () => doLogin('diretoria@empresa.com');
+
+    const form = document.getElementById('loginForm');
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      errEl.classList.add('hidden');
+      const email = document.getElementById('loginEmail').value.trim();
+      const senha = document.getElementById('loginPass').value;
+      if (!B.contas.ativo) return doLoginLocal(email || 'diretoria@empresa.com');
+
+      const btn = form.querySelector('button[type=submit]');
+      const rotulo = btn.innerHTML;
+      btn.disabled = true; btn.innerHTML = `${ic.clock} Entrando…`;
+      try {
+        await store.apiLogin(email, senha);
+        B.toast('Bem-vindo de volta ao Brentor.ai','success');
+        B.router.go('home');
+      } catch (err) {
+        mostrarErro(err.message);
+        btn.disabled = false; btn.innerHTML = rotulo;
+      }
+    };
+    document.getElementById('demoBtn')?.addEventListener('click', () => doLoginLocal('diretoria@empresa.com'));
 
     // Cadastro gratuito com CPF/CNPJ
     document.getElementById('freeBtn').onclick = () => showFreeSignup();
@@ -193,7 +218,7 @@
     });
   }
 
-  function doFreeSignup(modal) {
+  async function doFreeSignup(modal) {
     const name = document.getElementById('fsName').value.trim();
     const email = document.getElementById('fsEmail').value.trim();
     const doc = document.getElementById('fsDoc').value.replace(/\D/g,'');
@@ -208,6 +233,22 @@
     if (doc.length!==11 && doc.length!==14) return err('Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.');
     if (pwd.length < 6) return err('A senha deve ter pelo menos 6 caracteres.');
     const company = (email.split('@')[1]||'').split('.')[0].replace(/\b\w/g,c=>c.toUpperCase()) || name.split(' ')[0];
+
+    if (B.contas.ativo) {
+      // O servidor é quem garante 1 conta por CPF/CNPJ — restrição do banco,
+      // impossível de burlar limpando o navegador.
+      errEl.textContent = 'Criando sua conta…'; errEl.classList.remove('hidden');
+      errEl.style.color = 'var(--text-mute)';
+      store.apiRegister({ name, email, company, doc, password: pwd })
+        .then(() => {
+          modal.close();
+          B.toast('Conta criada! Bem-vindo ao Brentor.ai — 15 dias e 350 créditos disponíveis.','success');
+          B.router.go('home');
+        })
+        .catch(e => { errEl.style.color = 'var(--red)'; err(e.message); });
+      return false;
+    }
+
     const result = store.registerFree({ name, email, company }, doc);
     if (!result.ok) return err(result.reason);
     modal.close();
@@ -329,7 +370,10 @@
       else if (a==='context') B.router.go('context');
       else if (a==='account') B.router.go('account');
       else if (a==='admin') B.router.go('admin');
-      else if (a==='logout') { store.logout(); renderAuth(); }
+      else if (a==='logout') {
+        if (B.contas.ativo) store.apiLogout().then(renderAuth);
+        else { store.logout(); renderAuth(); }
+      }
       else if (a==='reset') B.modal({ title:'Reiniciar demonstração?', body:'<p>Isso limpa seus dados locais (histórico, créditos e configurações) e volta ao estado inicial.</p>',
         actions:[{label:'Reiniciar', class:'primary', onClick:()=>{ store.reset(); store.login(s.user, 'gold'); B.router.go('home'); B.toast('Demonstração reiniciada','success'); }},{label:'Cancelar',class:'ghost'}] });
     });
@@ -353,6 +397,8 @@
           ${u.doc ? `<div class="field" style="margin:0"><label>CPF / CNPJ</label>
             <input class="input" value="${esc(u.doc)}" disabled style="opacity:.7"></div>` : ''}
           <div style="height:1px;background:var(--line-soft);margin:2px 0"></div>
+          ${B.contas.ativo ? `<div class="field" style="margin:0"><label>Senha atual <span class="muted" style="font-weight:400;font-size:12px">(só para trocar a senha)</span></label>
+            <input class="input" id="cadPwdAtual" type="password" placeholder="Sua senha de hoje"></div>` : ''}
           <div class="field" style="margin:0"><label>Nova senha <span class="muted" style="font-weight:400;font-size:12px">(deixe em branco para não alterar)</span></label>
             <input class="input" id="cadPwd" type="password" placeholder="Mínimo 6 caracteres"></div>
           <div class="field" style="margin:0"><label>Confirmar nova senha</label>
@@ -381,6 +427,19 @@
       if (pwd.length < 6) return err('A nova senha deve ter pelo menos 6 caracteres.');
       if (pwd !== pwd2) return err('As senhas não conferem.');
     }
+
+    if (B.contas.ativo) {
+      const atual = document.getElementById('cadPwdAtual')?.value || '';
+      if (pwd && !atual) return err('Informe sua senha atual para poder trocá-la.');
+      store.apiUpdate({ name, email, company, password: pwd || undefined, currentPassword: atual })
+        .then(() => {
+          modal.close();
+          B.toast(pwd ? 'Dados e senha atualizados — as outras sessões foram encerradas' : 'Dados atualizados', 'success');
+        })
+        .catch(e => err(e.message));
+      return false;
+    }
+
     store.updateUser({ name, email, company });
     modal.close();
     B.toast(pwd ? 'Dados e senha atualizados' : 'Dados atualizados', 'success');
@@ -402,9 +461,12 @@
   /* ============================================================
      INIT
      ============================================================ */
-  function init() {
+  async function init() {
     // ano no rodapé / título
     document.title = 'Brentor.ai · Soluções de IA para empresas';
+    // Consulta o servidor ANTES de decidir a tela: com contas ativas, quem
+    // diz se você está logado é a sessão no servidor, não o localStorage.
+    await store.bootServer();
     if (store.isAuthed()) B.router.go('home');
     else renderAuth();
     // mantém topbar/sidebar sincronizados com mudanças de estado

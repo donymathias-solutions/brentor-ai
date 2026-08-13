@@ -65,9 +65,78 @@
   }
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
 
+  /* ── Contas no servidor ───────────────────────────────────
+     Quando o backend de contas está ativo, quem manda em usuário, plano,
+     créditos e validade do trial é o SERVIDOR — o navegador só exibe. O
+     resto (histórico, contexto, preferências) continua local por enquanto.
+     Sem backend, tudo funciona como antes, em modo demonstração. */
+  B.contas = { ativo: false, checado: false };
+
+  function aplicarUsuarioDoServidor(u) {
+    state.user = {
+      name: u.name, email: u.email,
+      company: u.company || '',
+      doc: u.doc ? (B.fmtDoc ? B.fmtDoc(u.doc) : u.doc) : '',
+    };
+    state.plan = u.plan;
+    state.credits = u.credits;
+    state.creditsMax = u.creditsMax;
+    state.trialExpiry = u.trialExpiry || null;
+    state.isAdmin = !!u.isAdmin;
+  }
+
+  async function chamar(rota, corpo) {
+    const res = await fetch(rota, {
+      method: corpo ? 'POST' : 'GET',
+      credentials: 'same-origin',
+      headers: corpo ? { 'Content-Type': 'application/json' } : undefined,
+      body: corpo ? JSON.stringify(corpo) : undefined,
+    });
+    let dados = {};
+    try { dados = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error(dados.error || ('Falha na comunicação (' + res.status + ')'));
+    return dados;
+  }
+
   const listeners = [];
   B.store = {
     get: () => state,
+
+    /* Consulta o servidor na abertura do app. Se houver backend de contas,
+       o estado salvo no navegador não vale mais como prova de login: quem
+       decide se você está autenticado é a sessão no servidor. */
+    async bootServer() {
+      try {
+        const d = await chamar('/api/auth/me');
+        B.contas.ativo = !!d.contas;
+        if (d.contas) {
+          if (d.user) aplicarUsuarioDoServidor(d.user);
+          else state.user = null;
+          persist();
+        }
+      } catch (e) {
+        B.contas.ativo = false;   // servidor fora do ar → segue em modo local
+      }
+      B.contas.checado = true;
+      return B.contas.ativo;
+    },
+
+    async apiLogin(email, password) {
+      const d = await chamar('/api/auth/login', { email, password });
+      aplicarUsuarioDoServidor(d.user); this.emit();
+    },
+    async apiRegister(dados) {
+      const d = await chamar('/api/auth/register', dados);
+      aplicarUsuarioDoServidor(d.user); this.emit();
+    },
+    async apiUpdate(dados) {
+      const d = await chamar('/api/auth/update', dados);
+      aplicarUsuarioDoServidor(d.user); this.emit();
+    },
+    async apiLogout() {
+      try { await chamar('/api/auth/logout', {}); } catch (e) {}
+      state.user = null; this.emit();
+    },
     sub: (fn) => { listeners.push(fn); return () => { const i=listeners.indexOf(fn); if(i>=0) listeners.splice(i,1); }; },
     emit: () => { persist(); listeners.forEach(fn => { try { fn(state); } catch(e){} }); },
 
