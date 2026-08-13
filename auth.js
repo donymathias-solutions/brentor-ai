@@ -11,6 +11,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const db = require('./db');
+const mailer = require('./mailer');
 
 /* Espelho dos planos de assets/js/config.js. Precisa ser mantido igual —
    o servidor é a autoridade sobre plano e créditos; o navegador só exibe. */
@@ -60,7 +61,44 @@ function publico(u) {
     creditsMax: u.credits_max,
     trialExpiry: u.trial_expiry ? new Date(u.trial_expiry).toISOString() : null,
     isAdmin: u.is_admin,
+    emailVerificado: !!u.email_verified,
   };
+}
+
+/* ── tokens de e-mail (confirmação e redefinição) ────────
+   O que vai no link é o token cru; no banco fica só o SHA-256 dele.
+   Assim um vazamento do banco não entrega acesso a conta nenhuma. */
+const hashToken = (t) => crypto.createHash('sha256').update(t).digest('hex');
+
+async function criarToken(userId, kind, horas) {
+  const token = crypto.randomBytes(32).toString('hex');
+  const exp = new Date(Date.now() + horas * 3600000);
+  // um pedido novo invalida os anteriores do mesmo tipo
+  await db.q('DELETE FROM tokens WHERE user_id = $1 AND kind = $2', [userId, kind]);
+  await db.q('INSERT INTO tokens (token_hash, user_id, kind, expires_at) VALUES ($1,$2,$3,$4)',
+    [hashToken(token), userId, kind, exp]);
+  return token;
+}
+
+async function consumirToken(token, kind) {
+  const { rows } = await db.q(
+    `UPDATE tokens SET used_at = now()
+      WHERE token_hash = $1 AND kind = $2 AND used_at IS NULL AND expires_at > now()
+      RETURNING user_id`, [hashToken(token), kind]);
+  return rows[0] ? rows[0].user_id : null;
+}
+
+function enderecoBase(req) {
+  return process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+}
+
+async function mandarConfirmacao(req, u) {
+  const token = await criarToken(u.id, 'verify', 48);
+  const link = `${enderecoBase(req)}/#confirmar=${token}`;
+  const { assunto, html } = mailer.emailConfirmacao(String(u.name).split(' ')[0], link);
+  const r = await mailer.enviar(u.email, assunto, html);
+  if (!r.enviado) console.log(`[auth] link de confirmação de ${u.email}: ${link}`);
+  return r;
 }
 
 async function usuarioDaSessao(req) {
@@ -122,6 +160,7 @@ function montar(app) {
          PLANOS.free.credits, validade]);
 
       await criarSessao(res, rows[0].id);
+      mandarConfirmacao(req, rows[0]).catch(e => console.error('[auth] confirmação:', e.message));
       res.json({ user: publico(rows[0]) });
     } catch (e) {
       if (e.code === '23505') {   // violação de unicidade
@@ -200,6 +239,70 @@ function montar(app) {
       if (e.code === '23505') return res.status(409).json({ error: 'Já existe uma conta com este e-mail.' });
       res.status(500).json({ error: 'Não foi possível salvar: ' + e.message });
     }
+  });
+
+  /* ── Confirmação de e-mail ──────────────────────────── */
+
+  app.post('/api/auth/verify', async (req, res) => {
+    if (!db.ativo()) return res.status(503).json({ error: 'Indisponível no momento.' });
+    try {
+      const userId = await consumirToken(String(req.body?.token || ''), 'verify');
+      if (!userId) return res.status(400).json({ error: 'Link inválido ou expirado. Peça um novo e-mail de confirmação.' });
+      const { rows } = await db.q(
+        'UPDATE users SET email_verified = TRUE, updated_at = now() WHERE id = $1 RETURNING *', [userId]);
+      res.json({ user: publico(rows[0]) });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/api/auth/verify/resend', exigirLogin, async (req, res) => {
+    if (!db.ativo()) return res.status(503).json({ error: 'Indisponível no momento.' });
+    try {
+      if (req.usuario.email_verified) return res.json({ ok: true, jaConfirmado: true });
+      const r = await mandarConfirmacao(req, req.usuario);
+      res.json({ ok: true, enviado: r.enviado });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  /* ── Recuperação de senha ───────────────────────────── */
+
+  /* Responde sempre igual, exista ou não a conta: senão, esta rota vira um
+     detector de quais e-mails estão cadastrados no Brentor. */
+  app.post('/api/auth/forgot', async (req, res) => {
+    if (!db.ativo()) return res.status(503).json({ error: 'Indisponível no momento.' });
+    const resposta = { ok: true };
+    try {
+      const em = normEmail(req.body?.email);
+      const { rows } = await db.q('SELECT * FROM users WHERE email_norm = $1', [em]);
+      const u = rows[0];
+      if (u) {
+        const token = await criarToken(u.id, 'reset', 1);
+        const link = `${enderecoBase(req)}/#senha=${token}`;
+        const { assunto, html } = mailer.emailRecuperacao(String(u.name).split(' ')[0], link);
+        const r = await mailer.enviar(u.email, assunto, html);
+        if (!r.enviado) console.log(`[auth] link de redefinição de ${u.email}: ${link}`);
+      }
+    } catch (e) { console.error('[auth] forgot:', e.message); }
+    res.json(resposta);
+  });
+
+  app.post('/api/auth/reset', async (req, res) => {
+    if (!db.ativo()) return res.status(503).json({ error: 'Indisponível no momento.' });
+    try {
+      const senha = String(req.body?.password || '');
+      if (senha.length < 6) return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
+      const userId = await consumirToken(String(req.body?.token || ''), 'reset');
+      if (!userId) return res.status(400).json({ error: 'Link inválido, já usado ou expirado. Peça um novo.' });
+
+      const hash = await bcrypt.hash(senha, 10);
+      await db.q('UPDATE users SET pass_hash = $1, updated_at = now() WHERE id = $2', [hash, userId]);
+      // Quem redefine a senha derruba todas as sessões: se alguém estava
+      // dentro da conta, perde o acesso na hora.
+      await db.q('DELETE FROM sessions WHERE user_id = $1', [userId]);
+
+      const { rows } = await db.q('SELECT * FROM users WHERE id = $1', [userId]);
+      await criarSessao(res, userId);
+      res.json({ user: publico(rows[0]) });
+    } catch (e) { res.status(500).json({ error: 'Não foi possível redefinir: ' + e.message }); }
   });
 }
 

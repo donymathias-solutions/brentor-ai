@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS users (
   credits_max   INTEGER     NOT NULL DEFAULT 350,
   trial_expiry  TIMESTAMPTZ,
   is_admin      BOOLEAN     NOT NULL DEFAULT FALSE,
+  email_verified BOOLEAN    NOT NULL DEFAULT FALSE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -74,12 +75,33 @@ CREATE TABLE IF NOT EXISTS credit_events (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS credit_events_user ON credit_events (user_id, created_at DESC);
+
+-- Links de confirmação de e-mail e de redefinição de senha.
+-- Guardamos o HASH do token, nunca o token em si: se o banco vazar,
+-- os links já emitidos não servem para invadir conta nenhuma.
+CREATE TABLE IF NOT EXISTS tokens (
+  token_hash  TEXT        PRIMARY KEY,
+  user_id     BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind        TEXT        NOT NULL,      -- 'verify' | 'reset'
+  expires_at  TIMESTAMPTZ NOT NULL,
+  used_at     TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS tokens_user ON tokens (user_id, kind);
 `;
+
+/* Colunas acrescentadas depois da primeira versão do schema. CREATE TABLE
+   IF NOT EXISTS não altera tabela existente, então cada nova coluna precisa
+   do seu ALTER — que é idempotente com IF NOT EXISTS. */
+const MIGRACOES = [
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE`,
+];
 
 async function init() {
   if (!pool) return false;
   try {
     await pool.query(SCHEMA);
+    for (const m of MIGRACOES) await pool.query(m);
     pronto = true;
     console.log('✅  Banco de contas conectado e schema pronto.');
     return true;

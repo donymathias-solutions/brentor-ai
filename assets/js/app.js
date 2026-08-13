@@ -125,7 +125,7 @@
               <input class="input" id="loginPass" type="password" placeholder="••••••••" value="${B.contas.ativo?'':'brentor'}" required></div>
             <div class="row-between">
               <label style="display:flex;gap:8px;align-items:center;color:var(--text-soft)"><input type="checkbox" checked style="accent-color:var(--brand-500)"> Manter conectado</label>
-              <a href="#" onclick="return false">Esqueci a senha</a>
+              <a href="#" id="esqueciSenha">Esqueci a senha</a>
             </div>
             <button class="btn primary block lg" type="submit">${ic.lock} Entrar no Brentor</button>
           </form>
@@ -176,8 +176,100 @@
     };
     document.getElementById('demoBtn')?.addEventListener('click', () => doLoginLocal('diretoria@empresa.com'));
 
+    document.getElementById('esqueciSenha').onclick = (e) => {
+      e.preventDefault();
+      if (!B.contas.ativo) { B.toast('Na demonstração qualquer senha entra','info'); return; }
+      showEsqueciSenha(document.getElementById('loginEmail').value.trim());
+    };
+
     // Cadastro gratuito com CPF/CNPJ
     document.getElementById('freeBtn').onclick = () => showFreeSignup();
+  }
+
+  /* ---------- Aviso de e-mail pendente de confirmação ---------- */
+  function mostrarAvisoEmail() {
+    const antigo = document.getElementById('avisoEmail');
+    const s = store.get();
+    if (!B.contas.ativo || !s.user || s.emailVerificado) { antigo?.remove(); return; }
+    if (antigo) return;
+
+    const content = document.getElementById('content');
+    if (!content) return;
+    const aviso = B.el(`<div class="trial-banner" id="avisoEmail" style="margin-bottom:14px">
+      ${ic.mail}
+      <span>Confirme seu e-mail <b>${esc(s.user.email)}</b> — é o que permite recuperar a conta se você esquecer a senha.</span>
+      <button class="btn ghost sm" id="reenviarEmail" style="margin-left:auto">Reenviar e-mail</button>
+    </div>`);
+    content.parentElement.insertBefore(aviso, content);
+    aviso.querySelector('#reenviarEmail').onclick = (e) => {
+      const b = e.currentTarget; b.disabled = true; b.textContent = 'Enviando…';
+      store.apiReenviarConfirmacao()
+        .then(() => { b.textContent = 'E-mail enviado'; B.toast('Link de confirmação enviado — verifique sua caixa de entrada','success'); })
+        .catch(err => { b.disabled = false; b.textContent = 'Reenviar e-mail'; B.toast(err.message,'warn'); });
+    };
+  }
+
+  /* ---------- Esqueci a senha ---------- */
+  function showEsqueciSenha(emailPrefill) {
+    const m = B.modal({
+      title: 'Recuperar acesso',
+      wide: true,
+      body: `
+        <p class="muted" style="margin-bottom:16px;font-size:13px">Informe o e-mail da sua conta. Enviaremos um link para você criar uma nova senha.</p>
+        <div class="field" style="margin:0"><label>E-mail</label>
+          <input class="input" id="esEmail" type="email" placeholder="seu@email.com" value="${esc(emailPrefill||'')}"></div>
+        <div id="esMsg" class="hidden" style="margin-top:14px;font-size:13px;padding:11px 13px;border-radius:8px"></div>`,
+      actions: [
+        { label:'Enviar link de recuperação', class:'primary', icon:'mail', onClick: () => {
+            const email = document.getElementById('esEmail').value.trim();
+            const msg = document.getElementById('esMsg');
+            const mostrar = (txt, cor) => { msg.textContent = txt; msg.classList.remove('hidden');
+              msg.style.cssText += `;color:${cor};background:var(--surface-2);border:1px solid var(--line-soft)`; };
+            if (!email || !email.includes('@')) { mostrar('Informe um e-mail válido.', 'var(--red)'); return false; }
+            mostrar('Enviando…', 'var(--text-mute)');
+            store.apiEsqueciSenha(email)
+              // Mensagem propositalmente igual exista ou não a conta: não
+              // entregamos para estranhos quais e-mails têm cadastro aqui.
+              .then(() => mostrar('Se existir uma conta com esse e-mail, o link de recuperação já está a caminho. Ele vale por 1 hora.', 'var(--green)'))
+              .catch(e => mostrar(e.message, 'var(--red)'));
+            return false;
+          } },
+        { label:'Voltar', class:'ghost' },
+      ],
+    });
+    return m;
+  }
+
+  /* ---------- Definir nova senha (chegou pelo link do e-mail) ---------- */
+  function showNovaSenha(token) {
+    renderAuth();
+    const m = B.modal({
+      title: 'Criar nova senha',
+      wide: true,
+      body: `
+        <p class="muted" style="margin-bottom:16px;font-size:13px">Escolha uma senha nova para sua conta. Ao confirmar, todas as sessões abertas são encerradas.</p>
+        <div class="form-grid" style="gap:13px">
+          <div class="field" style="margin:0"><label>Nova senha</label>
+            <input class="input" id="nsPwd" type="password" placeholder="Mínimo 6 caracteres"></div>
+          <div class="field" style="margin:0"><label>Confirmar nova senha</label>
+            <input class="input" id="nsPwd2" type="password" placeholder="Repita a nova senha"></div>
+          <div id="nsErr" class="hidden" style="color:var(--red);font-size:13px;padding:10px 12px;background:var(--red-soft);border-radius:8px;border:1px solid rgba(248,113,113,.25)"></div>
+        </div>`,
+      actions: [
+        { label:'Salvar nova senha', class:'primary', icon:'lock', onClick: () => {
+            const p1 = document.getElementById('nsPwd').value, p2 = document.getElementById('nsPwd2').value;
+            const errEl = document.getElementById('nsErr');
+            const err = (t) => { errEl.textContent = t; errEl.classList.remove('hidden'); return false; };
+            if (p1.length < 6) return err('A senha deve ter pelo menos 6 caracteres.');
+            if (p1 !== p2) return err('As senhas não conferem.');
+            store.apiRedefinirSenha(token, p1)
+              .then(() => { m.close(); B.toast('Senha alterada — você já está conectado','success'); B.router.go('home'); })
+              .catch(e => err(e.message));
+            return false;
+          } },
+        { label:'Cancelar', class:'ghost' },
+      ],
+    });
   }
 
   function showFreeSignup() {
@@ -332,6 +424,11 @@
       <button class="btn primary sm block" style="margin-top:10px" id="buyCredits">${ic.coin} Gerenciar créditos</button>`;
     document.getElementById('buyCredits').onclick = () => B.router.go('account');
 
+    /* Aviso de e-mail não confirmado. Não bloqueia o uso — só lembra, com um
+       botão para reenviar. Sem e-mail confirmado não há como recuperar a
+       conta se a pessoa esquecer a senha. */
+    mostrarAvisoEmail();
+
     // topbar
     document.getElementById('pageTitle').innerHTML = `${esc(title[0])}<small>${esc(title[1])}</small>`;
     const online = s.settings.portalOnline;
@@ -467,6 +564,22 @@
     // Consulta o servidor ANTES de decidir a tela: com contas ativas, quem
     // diz se você está logado é a sessão no servidor, não o localStorage.
     await store.bootServer();
+
+    /* Links que chegam por e-mail. O token é retirado da URL logo em seguida
+       para não ficar no histórico do navegador nem em print de tela. */
+    const hash = location.hash || '';
+    const reset = hash.match(/^#senha=([a-f0-9]{16,})/i);
+    const verify = hash.match(/^#confirmar=([a-f0-9]{16,})/i);
+    if (reset || verify) history.replaceState(null, '', location.pathname + location.search);
+
+    if (reset) return showNovaSenha(reset[1]);
+    if (verify) {
+      try {
+        await store.apiConfirmarEmail(verify[1]);
+        B.toast('E-mail confirmado com sucesso','success');
+      } catch (e) { B.toast(e.message, 'warn'); }
+    }
+
     if (store.isAuthed()) B.router.go('home');
     else renderAuth();
     // mantém topbar/sidebar sincronizados com mudanças de estado

@@ -83,6 +83,7 @@
     state.creditsMax = u.creditsMax;
     state.trialExpiry = u.trialExpiry || null;
     state.isAdmin = !!u.isAdmin;
+    state.emailVerificado = !!u.emailVerificado;
   }
 
   async function chamar(rota, corpo) {
@@ -137,6 +138,18 @@
       try { await chamar('/api/auth/logout', {}); } catch (e) {}
       state.user = null; this.emit();
     },
+    /* Pedido de recuperação: a resposta é sempre a mesma, exista a conta ou
+       não — quem pergunta não descobre quais e-mails estão cadastrados. */
+    apiEsqueciSenha(email) { return chamar('/api/auth/forgot', { email }); },
+    async apiRedefinirSenha(token, password) {
+      const d = await chamar('/api/auth/reset', { token, password });
+      aplicarUsuarioDoServidor(d.user); this.emit();
+    },
+    async apiConfirmarEmail(token) {
+      const d = await chamar('/api/auth/verify', { token });
+      aplicarUsuarioDoServidor(d.user); this.emit();
+    },
+    apiReenviarConfirmacao() { return chamar('/api/auth/verify/resend', {}); },
     sub: (fn) => { listeners.push(fn); return () => { const i=listeners.indexOf(fn); if(i>=0) listeners.splice(i,1); }; },
     emit: () => { persist(); listeners.forEach(fn => { try { fn(state); } catch(e){} }); },
 
