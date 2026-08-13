@@ -331,4 +331,115 @@ async function estornar(userId, custo, acao) {
   return rows[0] ? rows[0].credits : null;
 }
 
-module.exports = { montar, exigirLogin, usuarioDaSessao, debitar, estornar, publico, PLANOS };
+/* ── Cobrança de créditos nas rotas de IA ────────────────
+   Espelho de B.creditCost (assets/js/config.js). O servidor é a autoridade:
+   o navegador só exibe. Se um valor mudar lá, mude aqui também. */
+const CUSTOS = {
+  analysis:       { total: 54, web: 22, ai: 32 },
+  analysisDeep:   { total: 84, web: 38, ai: 46 },
+  compare:        { total: 86, web: 36, ai: 50 },
+  display_slides: { total: 36, web: 5,  ai: 31 },
+  display_dash:   { total: 41, web: 7,  ai: 34 },
+  display_report: { total: 31, web: 4,  ai: 27 },
+  chat_msg:       { total: 4,  web: 0,  ai: 4  },
+  mynewsv1:       { total: 40, web: 24, ai: 16 },
+  mynewsv2:       { total: 70, web: 40, ai: 30 },
+  focusv1:        { total: 30, web: 2,  ai: 28 },
+  focusv2:        { total: 66, web: 5,  ai: 61 },
+  file_analysis:  { total: 10, web: 0,  ai: 10 },
+};
+const ARQUIVO = CUSTOS.file_analysis.total;
+
+function nFiles(req)  { return (req.files || []).length; }
+function nUrls(req, campo) {
+  const raw = req.body && req.body[campo];
+  if (!raw) return 0;
+  try { const arr = typeof raw === 'string' ? JSON.parse(raw) : raw; return Array.isArray(arr) ? arr.length : 0; }
+  catch { return 0; }
+}
+const ehDeep = (req) => req.body && (req.body.deep === '1' || req.body.deep === 'true' || req.body.deep === true);
+const ehV2   = (req) => req.body && String(req.body.version) === '2.0';
+
+/* Cada resolver devolve { acao, custo, web, ai } — o custo já soma anexos/URLs,
+   exatamente como o frontend cobrava antes (base + 10 por arquivo/URL). */
+const RESOLVERS = {
+  analyze(req) {
+    const base = ehDeep(req) ? CUSTOS.analysisDeep : CUSTOS.analysis;
+    const acao = ehDeep(req) ? 'analysisDeep' : 'analysis';
+    return { acao, custo: base.total + nFiles(req) * ARQUIVO, web: base.web, ai: base.ai };
+  },
+  compare(req) {
+    const base = CUSTOS.compare;
+    return { acao: 'compare', custo: base.total + nFiles(req) * ARQUIVO, web: base.web, ai: base.ai };
+  },
+  display(req) {
+    const mapa = { slides:'display_slides', dash:'display_dash', report:'display_report', onepager:'display_report' };
+    const chave = mapa[req.body && req.body.outputType] || 'display_report';
+    const base = CUSTOS[chave];
+    return { acao: chave, custo: base.total + nFiles(req) * ARQUIVO, web: base.web, ai: base.ai };
+  },
+  mynews(req) {
+    const base = ehV2(req) ? CUSTOS.mynewsv2 : CUSTOS.mynewsv1;
+    return { acao: ehV2(req) ? 'mynewsv2' : 'mynewsv1', custo: base.total, web: base.web, ai: base.ai };
+  },
+  focus(req) {
+    const base = ehV2(req) ? CUSTOS.focusv2 : CUSTOS.focusv1;
+    const extras = (nFiles(req) + nUrls(req, 'urls')) * ARQUIVO;
+    return { acao: ehV2(req) ? 'focusv2' : 'focusv1', custo: base.total + extras, web: base.web, ai: base.ai };
+  },
+  chat() {
+    const base = CUSTOS.chat_msg;
+    return { acao: 'chat_msg', custo: base.total, web: base.web, ai: base.ai };
+  },
+};
+
+/* Middleware: exige login, desconta o custo ANTES da IA rodar e devolve o saldo
+   novo no corpo da resposta. Se a geração falhar (status >= 400 ou ok:false), o
+   estorno é feito antes de a resposta sair — o cliente nunca paga por erro nosso.
+   `nome` seleciona o resolver; passe null para rotas que exigem login mas não
+   cobram (ex.: ler notícia). Sem banco, tudo passa direto (modo demonstração). */
+function cobrar(nome) {
+  const resolver = nome ? RESOLVERS[nome] : null;
+  return async (req, res, next) => {
+    if (!db.ativo()) return next();               // modo local, como antes
+    let u;
+    try { u = await usuarioDaSessao(req); }
+    catch (e) { return res.status(500).json({ ok:false, error:'Falha ao validar a sessão.' }); }
+    if (!u) return res.status(401).json({ ok:false, error:'Entre na sua conta para usar esta ferramenta.' });
+    req.usuario = u;
+
+    if (u.plan === 'free' && u.trial_expiry && new Date(u.trial_expiry) < new Date()) {
+      return res.status(402).json({ ok:false, error:'Seu período gratuito terminou. Faça upgrade para continuar.' });
+    }
+
+    if (!resolver) return next();                 // login exigido, sem cobrança
+
+    let info;
+    try { info = resolver(req); } catch (e) { return next(); }
+    if (!info || !info.custo) return next();
+
+    const restante = await debitar(u.id, info.custo, info.acao, '', info.web, info.ai);
+    if (restante === null) {
+      return res.status(402).json({ ok:false, error:'Créditos insuficientes para esta ação.', credits: u.credits });
+    }
+
+    // Intercepta a resposta: refund em falha (antes de responder, sem corrida),
+    // saldo novo anexado em sucesso.
+    const jsonOrig = res.json.bind(res);
+    res.json = (body) => {
+      const falhou = res.statusCode >= 400 || (body && body.ok === false);
+      if (falhou) {
+        estornar(u.id, info.custo, info.acao)
+          .then(saldo => { if (body && typeof body === 'object' && saldo != null) body.credits = saldo; })
+          .catch(() => {})
+          .finally(() => jsonOrig(body));
+        return res;
+      }
+      if (body && typeof body === 'object') body.credits = restante;
+      return jsonOrig(body);
+    };
+    next();
+  };
+}
+
+module.exports = { montar, exigirLogin, cobrar, usuarioDaSessao, debitar, estornar, publico, PLANOS };

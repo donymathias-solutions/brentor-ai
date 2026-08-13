@@ -461,7 +461,7 @@ app.post('/api/health/recheck', async (req, res) => {
 /* ────────────────────────────────────────────────────────────
    ANALYSIS — pesquisa e relatório de empresa
    ──────────────────────────────────────────────────────────── */
-app.post('/api/analyze', upload.array('files', 5), async (req, res) => {
+app.post('/api/analyze', upload.array('files', 5), auth.cobrar('analyze'), async (req, res) => {
   const { name, info, relation } = req.body;
   const deep = req.body.deep === '1' || req.body.deep === 'true' || req.body.deep === true;
   const links = req.body.links ? (typeof req.body.links === 'string' ? JSON.parse(req.body.links) : req.body.links) : [];
@@ -703,7 +703,7 @@ ${deepSections}
 /* ────────────────────────────────────────────────────────────
    COMPARE — comparação de empresas
    ──────────────────────────────────────────────────────────── */
-app.post('/api/compare', upload.array('files', 5), async (req, res) => {
+app.post('/api/compare', upload.array('files', 5), auth.cobrar('compare'), async (req, res) => {
   const names = req.body.names ? (typeof req.body.names === 'string' ? JSON.parse(req.body.names) : req.body.names) : [];
   const { reason } = req.body;
   const links = req.body.links ? (typeof req.body.links === 'string' ? JSON.parse(req.body.links) : req.body.links) : [];
@@ -832,7 +832,7 @@ Retorne JSON:
 /* ────────────────────────────────────────────────────────────
    CHAT — assistente do portal
    ──────────────────────────────────────────────────────────── */
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', auth.cobrar('chat'), async (req, res) => {
   const { message, plan, context, history } = req.body;
   if (!message) return res.status(400).json({ ok:false, error:'Mensagem vazia' });
 
@@ -1039,7 +1039,7 @@ const INT_QUERY_VARIANTS = [
   (t) => `${t} breaking news this week`,
 ];
 
-app.post('/api/mynews', async (req, res) => {
+app.post('/api/mynews', auth.cobrar('mynews'), async (req, res) => {
   let { topics, scope, version, context, userName, exclude } = req.body;
   if (typeof context === 'string') { try { context = JSON.parse(context); } catch { context = null; } }
   const isV2 = version === '2.0';
@@ -1233,7 +1233,7 @@ Retorne JSON:
 });
 
 /* Leitura completa de uma matéria (para o pop-up de leitura) */
-app.post('/api/readnews', async (req, res) => {
+app.post('/api/readnews', auth.cobrar(null), async (req, res) => {
   const { url } = req.body;
   if (!url || !/^https?:\/\//.test(url)) return res.status(400).json({ ok:false, error:'URL inválida' });
   try {
@@ -1248,7 +1248,7 @@ app.post('/api/readnews', async (req, res) => {
 /* ────────────────────────────────────────────────────────────
    FOCUS — síntese e análise estratégica de conteúdo
    ──────────────────────────────────────────────────────────── */
-app.post('/api/focus', upload.array('files', 5), async (req, res) => {
+app.post('/api/focus', upload.array('files', 5), auth.cobrar('focus'), async (req, res) => {
   const { content, objective, audience, version, urls: urlsJson } = req.body;
   // multipart/form-data manda tudo como string — sem isso, ctxBlock(context) nunca reconhecia
   // o objeto e o contexto empresarial do usuário era silenciosamente ignorado no Focus.
@@ -1370,7 +1370,7 @@ Retorne JSON:
 /* ────────────────────────────────────────────────────────────
    DISPLAY — geração de conteúdo para apresentação
    ──────────────────────────────────────────────────────────── */
-app.post('/api/display', upload.array('files', 5), async (req, res) => {
+app.post('/api/display', upload.array('files', 5), auth.cobrar('display'), async (req, res) => {
   const { topic, content, outputType } = req.body;
   let seed = req.body.seed;
   if (typeof seed === 'string') { try { seed = JSON.parse(seed); } catch { seed = null; } }
@@ -1725,7 +1725,7 @@ Gere 4-6 seções objetivas (use subsections só quando realmente agregarem — 
 /* ────────────────────────────────────────────────────────────
    SOLVE (Direcionamento rápido do Display)
    ──────────────────────────────────────────────────────────── */
-app.post('/api/solve', async (req, res) => {
+app.post('/api/solve', auth.cobrar(null), async (req, res) => {
   const { topic, context } = req.body;
   const system = `Você é um consultor estratégico da Brentor.ai. Dê um direcionamento prático sobre como abordar e apresentar o tema solicitado. Seja direto e objetivo. ${ctxBlock(context)}`;
   try {

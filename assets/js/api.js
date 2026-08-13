@@ -81,21 +81,33 @@
 
   B.recheckAI();
 
+  /* O servidor devolve o saldo autoritativo (débito ou estorno já aplicados)
+     em `credits`, tanto no sucesso quanto no 402 de saldo insuficiente. Aqui
+     o navegador só reflete esse número — nunca o calcula. */
+  function aplicarSaldo(data) {
+    if (data && typeof data.credits === 'number' && B.store && B.store.syncCredits) {
+      B.store.syncCredits(data.credits);
+    }
+  }
+
   /* ── Helper: POST genérico para a API ───────────────────── */
   async function post(endpoint, body) {
     const res = await fetch('/api/' + endpoint, {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
     const data = await res.json();
+    aplicarSaldo(data);
     if (!data.ok) throw new Error(data.error || 'Erro na API');
     return data;
   }
 
   async function postForm(endpoint, formData) {
-    const res = await fetch('/api/' + endpoint, { method: 'POST', body: formData });
+    const res = await fetch('/api/' + endpoint, { method: 'POST', credentials: 'same-origin', body: formData });
     const data = await res.json();
+    aplicarSaldo(data);
     if (!data.ok) throw new Error(data.error || 'Erro na API');
     return data;
   }

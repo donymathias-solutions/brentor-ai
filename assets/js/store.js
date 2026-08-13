@@ -215,6 +215,10 @@
 
     spend(actionKey, opts) {
       const c = B.creditCost[actionKey]; if (!c) return true;
+      // Com contas ativas quem desconta é o SERVIDOR (débito atômico antes da
+      // IA). Aqui só conferimos o saldo para mostrar o aviso de créditos — a
+      // baixa real e o extrato vêm de volta na resposta da API.
+      if (B.contas && B.contas.ativo) return state.credits >= c.total;
       if (state.credits < c.total) return false;
       state.credits -= c.total;
       state.consumption.unshift({
@@ -230,6 +234,7 @@
 
     // Reembolsa a última cobrança de uma ação — chamado quando a ferramenta falha e não entrega resultado.
     refund(actionKey) {
+      if (B.contas && B.contas.ativo) return;   // servidor estorna sozinho
       const c = B.creditCost[actionKey]; if (!c) return;
       const idx = state.consumption.findIndex(e => e.action === actionKey);
       if (idx !== -1) {
@@ -238,6 +243,14 @@
       } else {
         state.credits += c.total;   // fallback: devolve sem mexer no histórico
       }
+      this.emit();
+    },
+
+    // Aplica o saldo autoritativo devolvido pelo servidor a cada chamada de IA.
+    syncCredits(saldo) {
+      if (typeof saldo !== 'number' || !isFinite(saldo)) return;
+      if (saldo === state.credits) return;
+      state.credits = saldo;
       this.emit();
     },
 
