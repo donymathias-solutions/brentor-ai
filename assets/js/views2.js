@@ -576,10 +576,11 @@
         </div>
       </div>
 
-      <div class="section-title"><h2>Planos de assinatura</h2></div>
+      <div class="section-title"><h2>Planos de assinatura</h2>
+        ${B.contas.ativo && s.plan!=='free' ? `<button class="btn ghost sm" id="btnPortal">${ic.coin} Gerenciar assinatura e pagamento</button>` : ''}</div>
       <div class="plan-grid fade-up" id="planGrid"></div>
 
-      <div class="section-title"><h2>Comprar créditos extras</h2><span class="muted" style="font-size:13px">Acabaram no meio do mês? Recarregue sem mudar de plano.</span></div>
+      <div class="section-title"><h2>Comprar créditos extras</h2><span class="muted" style="font-size:13px">${B.contas.ativo ? 'Em breve — por enquanto, ajuste pelo plano.' : 'Acabaram no meio do mês? Recarregue sem mudar de plano.'}</span></div>
       <div class="pack-grid fade-up" id="packGrid"></div>
 
       <div class="section-title"><h2>Histórico de consumo</h2></div>
@@ -588,8 +589,15 @@
       <div class="card" style="margin-top:18px;background:rgba(34,211,238,.04);border-color:rgba(34,211,238,.16)">
         <h3 style="font-size:15px;display:flex;align-items:center;gap:9px;margin-bottom:10px">${ic.info} Como os créditos são calculados</h3>
         <p class="muted" style="font-size:13.5px;line-height:1.6">Cada ação consome créditos conforme o esforço real: <b style="color:var(--text)">buscas na web</b> + <b style="color:var(--text)">processamento de IA</b>. Ações simples como uma mensagem no chat custam pouco; análises e comparações com pesquisa custam mais. Isso mantém o portal sustentável e justo — você paga pelo que usa.
-        <span style="display:block;margin-top:8px;color:var(--text-faint)">Modo demonstração: nenhuma cobrança real é feita nesta fase de testes.</span></p>
+        <span style="display:block;margin-top:8px;color:var(--text-faint)">${B.contas.ativo ? 'Assinatura processada com segurança pela Stripe — o Brentor nunca vê dados do seu cartão.' : 'Modo demonstração: nenhuma cobrança real é feita nesta fase de testes.'}</span></p>
       </div>`;
+
+    mount.querySelector('#btnPortal')?.addEventListener('click', async (e) => {
+      const b = e.currentTarget; const orig = b.innerHTML;
+      b.disabled = true; b.innerHTML = `${ic.clock} Abrindo…`;
+      try { const { url } = await store.apiPortal(); location.href = url; }
+      catch (err) { B.toast(err.message, 'warn'); b.disabled = false; b.innerHTML = orig; }
+    });
 
     // banner de trial
     if (s.plan === 'free') {
@@ -619,11 +627,27 @@
         ${current ? `<div class="current-tag">${ic.check} Seu plano atual</div>` : `<button class="btn ${p.featured?'primary':'ghost'} block">${B.plans[s.plan].price < p.price ? 'Fazer upgrade' : 'Mudar para '+p.name}</button>`}
       </div>`);
       const btn = card.querySelector('button');
-      if (btn) btn.onclick = () => B.modal({
-        title:`Mudar para o plano ${p.name}?`,
-        body:`<p>Você passará a ter <b>${B.fmtNum(p.credits)} créditos/mês</b> por <b>${B.fmtBRL(p.price)}</b>. <span class="muted">(Demonstração — sem cobrança real.)</span></p>`,
-        actions:[{label:'Confirmar', class:'primary', onClick:()=>{ store.setPlan(id); B.toast('Plano atualizado para '+p.name,'success'); B.views.account(mount); }},{label:'Cancelar',class:'ghost'}],
-      });
+      if (btn) btn.onclick = () => {
+        if (!B.contas.ativo) {
+          B.modal({
+            title:`Mudar para o plano ${p.name}?`,
+            body:`<p>Você passará a ter <b>${B.fmtNum(p.credits)} créditos/mês</b> por <b>${B.fmtBRL(p.price)}</b>. <span class="muted">(Demonstração — sem cobrança real.)</span></p>`,
+            actions:[{label:'Confirmar', class:'primary', onClick:()=>{ store.setPlan(id); B.toast('Plano atualizado para '+p.name,'success'); B.views.account(mount); }},{label:'Cancelar',class:'ghost'}],
+          });
+          return;
+        }
+        // com contas ativas, o próprio Checkout da Stripe troca de plano em cima
+        // de uma assinatura existente — não precisamos perguntar duas vezes.
+        B.modal({
+          title:`Assinar o plano ${p.name}`,
+          body:`<p>Você será levado ao checkout seguro da Stripe para confirmar <b>${B.fmtNum(p.credits)} créditos/mês</b> por <b>${B.fmtBRL(p.price)}</b>. O Brentor não vê nem guarda dados do seu cartão.</p>`,
+          actions:[{label:'Continuar para pagamento', class:'primary', icon:'coin', onClick: async () => {
+            try { const { url } = await store.apiCheckout(id); location.href = url; }
+            catch (err) { B.toast(err.message, 'warn'); }
+            return false; // mantém o modal até o redirecionamento acontecer (ou o erro aparecer)
+          }},{label:'Cancelar',class:'ghost'}],
+        });
+      };
       pg.appendChild(card);
     });
 
@@ -633,8 +657,8 @@
       const card = el(`<div class="pack">
         ${pack.tag?`<div class="tag" style="font-size:11px;color:var(--accent);background:var(--accent-soft);display:inline-block;padding:2px 10px;border-radius:20px;margin-bottom:8px;white-space:nowrap">${esc(pack.tag)}</div>`:''}
         <div class="pk-cr">+${B.fmtNum(pack.credits)}</div><div class="pk-pr">créditos · ${B.fmtBRL(pack.price)}</div>
-        <button class="btn ghost block">${ic.plus} Comprar</button></div>`);
-      card.querySelector('button').onclick = () => B.modal({
+        <button class="btn ghost block" ${B.contas.ativo?'disabled':''}>${ic.plus} ${B.contas.ativo?'Em breve':'Comprar'}</button></div>`);
+      if (!B.contas.ativo) card.querySelector('button').onclick = () => B.modal({
         title:'Comprar créditos extras',
         body:`<p>Adicionar <b>${B.fmtNum(pack.credits)} créditos</b> à sua conta por <b>${B.fmtBRL(pack.price)}</b>. <span class="muted">(Demonstração — sem cobrança real.)</span></p>`,
         actions:[{label:'Confirmar compra', class:'primary', icon:'coin', onClick:()=>{ store.addCredits(pack.credits); B.toast(`+${pack.credits} créditos adicionados`,'success'); B.views.account(mount); }},{label:'Cancelar',class:'ghost'}],

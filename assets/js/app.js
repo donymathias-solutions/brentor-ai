@@ -570,7 +570,9 @@
     const hash = location.hash || '';
     const reset = hash.match(/^#senha=([a-f0-9]{16,})/i);
     const verify = hash.match(/^#confirmar=([a-f0-9]{16,})/i);
-    if (reset || verify) history.replaceState(null, '', location.pathname + location.search);
+    const assinaturaOk = hash === '#assinatura=ok';
+    const assinaturaCancelada = hash === '#assinatura=cancelada';
+    if (reset || verify || assinaturaOk || assinaturaCancelada) history.replaceState(null, '', location.pathname + location.search);
 
     if (reset) return showNovaSenha(reset[1]);
     if (verify) {
@@ -582,6 +584,21 @@
 
     if (store.isAuthed()) B.router.go('home');
     else renderAuth();
+
+    /* Retorno do Checkout da Stripe: o pagamento já foi aprovado, mas o
+       webhook que libera o plano pode chegar alguns segundos depois. Confere
+       o saldo algumas vezes antes de desistir, em vez de mostrar o plano
+       antigo por engano. */
+    if (assinaturaOk) {
+      B.toast('Pagamento confirmado — ativando seu plano…', 'success');
+      const planoAntes = store.get().plan;
+      for (let i = 0; i < 6 && store.get().plan === planoAntes; i++) {
+        await new Promise(r => setTimeout(r, 1500));
+        try { await store.bootServer(); if (document.querySelector('.app')) renderShell(current); } catch (e) {}
+      }
+    } else if (assinaturaCancelada) {
+      B.toast('Pagamento não concluído — nenhuma cobrança foi feita', 'info');
+    }
     // mantém topbar/sidebar sincronizados com mudanças de estado
     store.sub(() => { if (store.isAuthed() && document.querySelector('.app')) renderShell(current); });
   }

@@ -150,6 +150,11 @@
       aplicarUsuarioDoServidor(d.user); this.emit();
     },
     apiReenviarConfirmacao() { return chamar('/api/auth/verify/resend', {}); },
+
+    /* Assinatura: devolve a URL do Checkout/Portal hospedado pela Stripe —
+       o navegador só redireciona, nunca vê dado de cartão. */
+    apiCheckout(plano) { return chamar('/api/billing/checkout', { plan: plano }); },
+    apiPortal() { return chamar('/api/billing/portal', {}); },
     sub: (fn) => { listeners.push(fn); return () => { const i=listeners.indexOf(fn); if(i>=0) listeners.splice(i,1); }; },
     emit: () => { persist(); listeners.forEach(fn => { try { fn(state); } catch(e){} }); },
 

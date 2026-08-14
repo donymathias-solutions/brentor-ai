@@ -116,6 +116,12 @@ const BRAND_GUARD = `
 REGRA DE MARCA (OBRIGATÓRIA): Você é o motor do Brentor. NUNCA mencione nomes de ferramentas, APIs, modelos de IA, mecanismos de busca ou provedores de tecnologia usados internamente (ex.: Tavily, Claude, Anthropic, OpenAI, GPT). Não use rótulos como "Resumo Tavily", "segundo o Claude", "fonte: Tavily" ou similares. Refira-se a qualquer dado obtido apenas como "pesquisa Brentor", "pesquisa web", "fontes consultadas" ou "análise Brentor". Para o usuário, tudo é Brentor.`;
 
 /* ── Middlewares ─────────────────────────────────────────── */
+/* O webhook da Stripe precisa do corpo CRU da requisição para validar a
+   assinatura — por isso sobe ANTES do express.json() global, que senão
+   consumiria o corpo e quebraria a verificação. */
+const billing = require('./billing');
+billing.montarWebhook(app);
+
 app.use(express.json({ limit: '20mb' }));
 
 /* ── Contas de usuário ───────────────────────────────────────
@@ -126,6 +132,7 @@ const db = require('./db');
 const auth = require('./auth');
 db.init();
 auth.montar(app);
+billing.montarRotas(app);
 
 app.use(express.static(path.join(__dirname)));   // serve o frontend
 

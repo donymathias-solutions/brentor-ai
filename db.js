@@ -95,6 +95,9 @@ CREATE INDEX IF NOT EXISTS tokens_user ON tokens (user_id, kind);
    do seu ALTER — que é idempotente com IF NOT EXISTS. */
 const MIGRACOES = [
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS users_stripe_customer_unico ON users (stripe_customer_id) WHERE stripe_customer_id IS NOT NULL`,
 ];
 
 async function init() {
