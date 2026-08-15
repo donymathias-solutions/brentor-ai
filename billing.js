@@ -33,6 +33,13 @@ function planoDoPreco(priceId) {
   return mapa[priceId] || null;
 }
 
+/* Preço de cada plano em reais — espelho de B.plans (assets/js/config.js).
+   O Pix Automático exige declarar de antemão, em centavos, o teto que o
+   banco do cliente pode debitar por ciclo — diferente do cartão, que lê
+   isso direto da fatura. A cobrança de verdade sempre segue o Price da
+   Stripe; isto é só o limite do mandato. */
+const PRECO_PLANO_BRL = { silver: 39.90, gold: 69.90, diamond: 109.90 };
+
 /* Cria o Customer da Stripe na primeira vez e grava no banco; da segunda
    em diante reaproveita — é o vínculo entre a conta Brentor e a Stripe. */
 async function garantirCustomer(u) {
@@ -135,6 +142,14 @@ function montarRotas(app) {
         mode: 'subscription',
         customer: customerId,
         line_items: [{ price, quantity: 1 }],
+        // Pix Automático: cartão e Pix aparecem lado a lado, o cliente escolhe.
+        // A renovação por Pix não é instantânea (o banco avisa o cliente com
+        // 3 dias de antecedência antes de debitar) — o teto do mandato precisa
+        // vir declarado aqui, em centavos.
+        payment_method_types: ['card', 'pix'],
+        payment_method_options: {
+          pix: { mandate_options: { payment_schedule: 'monthly', amount: Math.round(PRECO_PLANO_BRL[plano] * 100) } },
+        },
         success_url: `${base}/#assinatura=ok`,
         cancel_url: `${base}/#assinatura=cancelada`,
         allow_promotion_codes: true,
