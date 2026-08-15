@@ -138,23 +138,29 @@ function montarRotas(app) {
 
       const customerId = await garantirCustomer(req.usuario);
       const base = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
-      const session = await stripe.checkout.sessions.create({
+      const config = {
         mode: 'subscription',
         customer: customerId,
         line_items: [{ price, quantity: 1 }],
-        // Pix Automático: cartão e Pix aparecem lado a lado, o cliente escolhe.
-        // A renovação por Pix não é instantânea (o banco avisa o cliente com
-        // 3 dias de antecedência antes de debitar) — o teto do mandato precisa
-        // vir declarado aqui, em centavos.
-        payment_method_types: ['card', 'pix'],
-        payment_method_options: {
-          pix: { mandate_options: { payment_schedule: 'monthly', amount: Math.round(PRECO_PLANO_BRL[plano] * 100) } },
-        },
         success_url: `${base}/#assinatura=ok`,
         cancel_url: `${base}/#assinatura=cancelada`,
         allow_promotion_codes: true,
         locale: 'pt-BR',
-      });
+      };
+      // Pix só entra quando a conta Stripe já tiver o método liberado — pedir
+      // um tipo de pagamento que a conta ainda não tem faz a sessão inteira
+      // falhar, cartão incluso. STRIPE_PIX_ATIVO=1 liga isto sem deploy novo,
+      // assim que o Pix aparecer disponível no painel da Stripe.
+      if (process.env.STRIPE_PIX_ATIVO === '1') {
+        config.payment_method_types = ['card', 'pix'];
+        // Pix Automático: a renovação não é instantânea como no cartão — o
+        // banco do cliente avisa 3 dias antes de debitar — e o teto do
+        // mandato precisa vir declarado aqui, em centavos.
+        config.payment_method_options = {
+          pix: { mandate_options: { payment_schedule: 'monthly', amount: Math.round(PRECO_PLANO_BRL[plano] * 100) } },
+        };
+      }
+      const session = await stripe.checkout.sessions.create(config);
       res.json({ url: session.url });
     } catch (e) { res.status(500).json({ error: 'Não foi possível iniciar o pagamento: ' + e.message }); }
   });
